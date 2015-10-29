@@ -246,10 +246,11 @@ var updateExistingNpmDirectory = function (packageName, newPackageNpmDir,
 
   makeNewPackageNpmDir(newPackageNpmDir);
 
+  var needToDeleteJsonFiles = false;
   if (!_.isEmpty(preservedShrinkwrap.dependencies)) {
     // There are some unchanged packages here. Install from shrinkwrap.
     files.writeFile(files.pathJoin(newPackageNpmDir, 'npm-shrinkwrap.json'),
-                     JSON.stringify(preservedShrinkwrap, null, /*legible*/2));
+                    JSON.stringify(preservedShrinkwrap, null, /*legible*/2));
 
     // construct a matching package.json to make `npm install` happy
     constructPackageJson(packageName, newPackageNpmDir,
@@ -258,10 +259,7 @@ var updateExistingNpmDirectory = function (packageName, newPackageNpmDir,
     // `npm install`
     installFromShrinkwrap(newPackageNpmDir);
 
-    // Back when we used npm@1.4.28, we deleted the package.json and
-    // npm-shrinkwrap.json files created above, but npm@3.3.9 needs them
-    // to remain undeleted to avoid those pesky "couldn't read npm version
-    // lock information" errors.
+    needToDeleteJsonFiles = true;
   }
 
   // we may have just installed the shrinkwrapped packages. but let's not
@@ -275,6 +273,14 @@ var updateExistingNpmDirectory = function (packageName, newPackageNpmDir,
       installNpmModule(name, version, newPackageNpmDir);
     }
   });
+
+  if (needToDeleteJsonFiles) {
+    // Delete these files down here, instead of above where we set
+    // needToDeleteJsonFiles = true, so that the getInstalledDependencies
+    // call above (which runs `npm ls --json`) can succeed.
+    files.unlink(files.pathJoin(newPackageNpmDir, 'package.json'));
+    files.unlink(files.pathJoin(newPackageNpmDir, 'npm-shrinkwrap.json'));
+  }
 
   completeNpmDirectory(packageName, newPackageNpmDir, packageNpmDir,
                        npmDependencies);
