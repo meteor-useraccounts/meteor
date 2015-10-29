@@ -1,12 +1,10 @@
 {
   "dependencies": {
+    "amdefine": {
+      "version": "1.0.0"
+    },
     "source-map": {
-      "version": "0.4.2",
-      "dependencies": {
-        "amdefine": {
-          "version": "0.1.1"
-        }
-      }
+      "version": "0.4.2"
     }
   }
 }
