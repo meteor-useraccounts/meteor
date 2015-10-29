@@ -258,9 +258,10 @@ var updateExistingNpmDirectory = function (packageName, newPackageNpmDir,
     // `npm install`
     installFromShrinkwrap(newPackageNpmDir);
 
-    // delete package.json and npm-shrinkwrap.json
-    files.unlink(files.pathJoin(newPackageNpmDir, 'package.json'));
-    files.unlink(files.pathJoin(newPackageNpmDir, 'npm-shrinkwrap.json'));
+    // Back when we used npm@1.4.28, we deleted the package.json and
+    // npm-shrinkwrap.json files created above, but npm@3.3.9 needs them
+    // to remain undeleted to avoid those pesky "couldn't read npm version
+    // lock information" errors.
   }
 
   // we may have just installed the shrinkwrapped packages. but let's not
