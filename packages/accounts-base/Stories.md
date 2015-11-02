@@ -4,8 +4,6 @@ These are the stories that motivate the design of the accounts system. Although 
 
 # End-User Stories
 
-To avoid a lot of repetition, I'm structuring the stories in terms of the behavior various end-user actions should have in various end-user states. First I'll describe the states and the actions available from them, and then I'll describe the behavior of the actions themselves.
-
 The end-user has the following characteristics:
 
 * he might not remember whether he already has an account and/or which service(s) he has associated with the account
@@ -15,6 +13,8 @@ The end-user has the following characteristics:
 * he might want to intentionally create multiple accounts (e.g. a separate one for administration)
 * he might prefer to use or not use a particular login service to sign-in/sign-up. For example, he might prefer to not establish a password with the app or he might prefer to not reveal his email address to the app.
 * he might want to be able to sign-in to the same account using multiple login services. This can make signing-in more convenient, and provide a backup if he becomes unable to login using one login service (e.g. forgot password, or external account deleted). It can also make it easier for him to share information between the app and external services (e.g. sharing app data with others, or importing personal information from the external service into the app).
+
+To avoid a lot of repetition, I'm structuring the stories in terms of the behavior various end-user actions should have in various end-user states. First I'll describe the states and the actions available from them, and then I'll describe the behavior of the actions themselves.
 
 ## End-user States
 
