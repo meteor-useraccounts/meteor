@@ -99,7 +99,17 @@ The user becomes unable to login to his current account using service X.
 
 # Developer Stories
 
-## Compatibility
+The application developer has the following concerns:
+
+* Account creation policy: He might want to control which end-users can create accounts under which circumstances (e.g. only admins, only on connections from the intranet, or no one)
+* Sign-in policy: He might want to control under what circumstances an end-user can sign-in to a particular account (e.g. only via an LDAP service when logging in from the intranet)
+* He might want to control which end-users can insert records of any kind into the database (e.g. to prevent DoS attacks)
+
+The accounts UI package developer has the following concerns:
+
+* he wants login services to be pluggable so that he doesn't need to special-case each service and the app developer can choose from a variety of login services
+
+## Compatibility Stories
 
 Existing apps continue to work the same as before.
 
@@ -109,7 +119,7 @@ MDG is willing to include (in the next minor release) any PRs that are required 
 
 Existing login service providers which call `Accounts.registerLoginHandler` do not need to be changed to support new features. This includes core providers like `accounts-password` and `accounts-google`, as well as third party providers, both OAuth and non-OAuth.
 
-## Hooks to Enforce Policy
+## Policy Stories
 
 The `onCreateUser` handler is called if and only if a new account is created.
 
@@ -129,10 +139,13 @@ The callbacks registered with the (new) server-side method `addHasDataIntercepto
 
 If and only if a callback is set with the (new) server-side method `setMergeUsersHandler(callback)` (or something similar), then the Merge Account Associated with Service X action is available and the callback will be called with the two accounts to be merged when the user performs that action. It must return the id of whichever of those two accounts the user should be logged in to.
 
-## User Interface
+## User Interface Stories
 
-We are UI framework agnostic and do not dictate how the actions are made available to the user. For example, an app can put them in a dropdown, in the body of a page, or split across multiple pages. UI code calls into a client-side API that we provide to perform the actions.
+The accounts system is UI framework agnostic and does not dictate how the actions are made available to the user. For example, an app can put them in a dropdown, in the body of a page, or split across multiple pages. UI code calls into a client-side API that we provide to perform the actions.
 
+The API provides a way for the UI to determine which login services are available. 
+
+The API provides a consistent way for UI code use the registered login services so that it doesn't need to special-case each service.
 
 
 
