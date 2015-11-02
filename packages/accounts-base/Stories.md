@@ -109,7 +109,7 @@ The login service provider developer has the following concerns:
 
 * When supporting login via an external service, that service might provide it's own UI that asks the end-user whether he wants to create an account with the service even though creating such an account might not guarantee that the end-user will be able to access the app using the service (e.g. because the end-user needs to provide more registration info to the app). This is potentially confusing to the end-user but the login service provider developer can't prevent it.
 * When supporting login via an external service, that service might provide it's own UI that asks the end-user to give permission to the app even though giving such permission might not guarantee that the end-user will be able to access the app using the service (e.g. because the end-user needs to provide more registration info). This is potentially confusing to the end-user but the login service provider developer can't always prevent it.
-* When supporting login via an external service, that service might require a page reload and thus not be able to execute an arbitrary Javascript callback when a login attempt finishes. For example, this is the case when using an OAuth provider in a context (e.g. Safari mobile?) where popups can't be used. In cases like this, the external service typically provides a way for the login service developer to pass some limited "state" into the external service that is made available when the login attempt finishes.
+* When supporting login via an external service, that service might not support calling an arbitrary Javascript callback when a login attempt finishes. For example, this is the case when using an OAuth provider in a context (e.g. Safari mobile?) where popups can't be used. Or consider an external service that authenticates a user by sending a link to the user's phone in an SMS message. The user might initiate the sign-in or sign-up from the browser on his desktop machine but use the browser on his phone to follow the link and finish the process. In cases like these, the external service typically provides a way for the login service developer to pass some limited "state" into the external service when initiating the authentication process, and a way to extract that "state" (e.g. from an URL) when the login attempt succeeds.
 
 The accounts UI package developer has the following concerns:
 
@@ -127,9 +127,11 @@ Existing login service providers which call `Accounts.registerLoginHandler` do n
 
 ## Policy Stories
 
-The `onCreateUser` handler is called if and only if a new account is created.
+Merely having the `accounts` package installed does not allow a client to perform any action that results in adding any documents to any server-side collections, by default. Installing login service packages (e.g. `accounts-password`), calling a function in the API, or changing the default configuration may result in this restriction being lifted.
 
-The `onValidateNewUser` handlers are called if and only if a new account is created.
+The `onCreateUser` handler is called if and only if a new account is to be created.
+
+The `onValidateNewUser` handlers are called if and only if a new account is to be created and no account is created if any of those handlers throws an error or returns false.
 
 The `onValidateLoginAttempt` handlers are called when a user performs an action which could result in them being logged in to a new or different account. Should they also be called when logging in to the account they are already logged in to? To ensure backward compatibility, I think the answer is "yes". Should they also be called when adding a service to an existing account? I'm leaning toward "no" to be consistent with the current behavior when calling other methods that modify the credentials required to access the current account (e.g. `changePassword`). Instead, I'm thinking we should provide a new `onValidateUpdateCredentials` hook (see below).
 
@@ -144,6 +146,16 @@ The callbacks registered with the (new) server-side method `addSignedUpIntercept
 The callbacks registered with the (new) server-side method `addHasDataInterceptor(callback)` (or something similar) are called to determine whether a guest user has any associated data. If no callbacks are registered or any registered callback returns true, then the user's state is Guest with Data. Otherwise, the user's state is Guest without Data.
 
 If and only if a callback is set with the (new) server-side method `setMergeUsersHandler(callback)` (or something similar), then the Merge Account Associated with Service X action is available and the callback will be called with the two accounts to be merged when the user performs that action. It must return the id of whichever of those two accounts the user should be logged in to.
+
+## External Login Service Stories
+
+### Minimize confusion caused by external services
+
+A login service provider developer can provide support for signing up and signing in using an external service that asks the user to create on with service and prompts the user to give the app permission, in a way that allows a UI developer to minimize any end-user's confusion.
+
+### Support external services that "split" authentication
+
+A login service provider developer can provide support for signing up and signing in using an external service that does not pass control back to the initiating client and instead only allows a limited "state" object that is passed in an URL that the end-user visits (potentially with a different client) upon successful authentication.
 
 ## User Interface Stories
 
