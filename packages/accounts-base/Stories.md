@@ -105,9 +105,15 @@ The application developer has the following concerns:
 * Sign-in policy: He might want to control under what circumstances an end-user can sign-in to a particular account (e.g. only via an LDAP service when logging in from the intranet)
 * He might want to control which end-users can insert records of any kind into the database (e.g. to prevent DoS attacks)
 
+The login service provider developer has the following concerns:
+
+* When supporting login via an external service, that service might provide it's own UI that asks the end-user whether he wants to create an account with the service even though creating such an account might not guarantee that the end-user will be able to access the app using the service (e.g. because the end-user needs to provide more registration info to the app). This is potentially confusing to the end-user but the login service provider developer can't prevent it.
+* When supporting login via an external service, that service might provide it's own UI that asks the end-user to give permission to the app even though giving such permission might not guarantee that the end-user will be able to access the app using the service (e.g. because the end-user needs to provide more registration info). This is potentially confusing to the end-user but the login service provider developer can't always prevent it.
+* When supporting login via an external service, that service might require a page reload and thus not be able to execute an arbitrary Javascript callback when a login attempt finishes. For example, this is the case when using an OAuth provider in a context (e.g. Safari mobile?) where popups can't be used. In cases like this, the external service typically provides a way for the login service developer to pass some limited "state" into the external service that is made available when the login attempt finishes.
+
 The accounts UI package developer has the following concerns:
 
-* he wants login services to be pluggable so that he doesn't need to special-case each service and the app developer can choose from a variety of login services
+* He wants login services to be pluggable so that he doesn't need to special-case each service and the app developer can choose from a variety of login service
 
 ## Compatibility Stories
 
