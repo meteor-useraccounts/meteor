@@ -108,3 +108,8 @@ Passing `true` for `overrideLogin` indicates that you understand the risks and s
 ## Alias Accounts
 
 After a login handler returns the user id of the matching user, we check to see whether that user has an `_aliasFor` property. If it does, we use that property's value as the real user id from then on. `Accounts.AddAlias(idOfAliasUser)` and `Accounts.removeAlias()` manage the `_aliasFor` property and perform safety checks to avoid developers accidentally introducing security vulnerabilities.
+
+## Auth IDs
+
+Client generates a cryptographically unique "auth ID" and passes it as part of the "state" that is passed to `Accounts.login`. That state might end up in a separate browser session if the authentication process ends in a different browser than the one where it started. The ending browser session finishes the authentication process and stores the "auth ID" in a new user object that is marked as "unregistered" (to prevent login). User can then use either browser session to register by passing the "auth ID" (or even multiple auth IDs) into the `Accounts.createUser` along with the other information required to register. The server uses the "auth ID" to finds the existing unregistered user(s) and add the registration information to it or make it/them alias for a new registered user. This means that the user doesn't need to login a second time when `Accounts.createUser` is called.
+
