@@ -61,9 +61,14 @@ If there are multiple login services, the app probably won't provide Switch User
 
 This action isn't directly initiated by the user, but is initiated by other actions that the user can initiate and it is user visible. It can result in the user having a "login" associated with service X (i.e. he has successfully authenticated with service X), even though the user might not be able to use the login to sign-in to an account yet.
 
-If the user already has a login associated with service X an successful outcome is reported.
+If the user already has a login associated with service X a successful outcome is reported.
 
-Otherwise, the app passes the information that the user has already provided (e.g. password) to the login service for service X. The login service uses that information and/or requires the user to take additional action (e.g. login to an external service that support OAuth, or follow a link in an email or SMS) to authenticate the user. The login service might also allow the user to register with an external service before authenticating and/or require that the user give the app permission to access his account on the external service. If the authentication process requires the user to follow a link to authenticate, the user might follow that link from a different client than the one where he initiated the sign-in process. Under those circumstances both the new client and the initiating client should behave the same. Under some circumstances (e.g. user never follows a link), a services might never report the outcome of the authentication. However, when the authentication outcome is reported, it can either have succeeded or failed.
+Otherwise, the app passes the information that the user has already provided (e.g. password) to the login service for service X. The login service uses that information and/or requires the user to take additional action (e.g. login to an external service that support OAuth, or follow a link in an email or SMS) to authenticate the user. The login service might also allow the user to register with an external service before authenticating and/or require that the user give the app permission to access his account on the external service. 
+
+The authentication process might:
+
+* redirect the client to a new page, causing the app to reload. The reloaded app should allow the user to continue whatever action was in process.
+* require the user to follow a link and the user might do that in a different client than the one where he initiated the sign-in process. After following the link, the user should be able to continue whatever action was in process from either the new client or the initiating client. Under some circumstances (e.g. user never follows a link), a login service might never report the outcome of the authentication. However, when the authentication outcome is reported, it can be reported to have either succeeded or failed.
 
 ### Sign In with Service X
 
