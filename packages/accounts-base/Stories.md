@@ -78,7 +78,7 @@ The end-user has the following characteristics:
 
 To avoid a lot of repetition, I'm structuring the stories in terms of the behavior various end-user actions should have in various end-user states. First I'll describe the states and the actions available from them, and then I'll describe the behavior of the actions themselves.
 
-## End-user States
+## End-User States
 
 ### Logged Out
 
