@@ -91,13 +91,23 @@ Otherwise, if the user has not already authenticated with service X (e.g. as par
 
 If the authentication fails, the user sees something like "Sign-in Failed", his state remains unchanged, and the sign-up is canceled.
 
-If the authentication succeeds and there is an existing app account which matches the authentication, the user is asked whether he wants to sign-in to the existing account or, if he is a guest with data, merge the existing account. If he chooses either, the actions are run. If he does, the Sign In with Service X action is followed. Otherwise, the user's state remains unchanged and the sign up is canceled.
+If the authentication succeeds and there is an existing app account which matches the authentication, the user is asked whether he wants to sign-in to the existing account or, if he is a guest with data, merge the existing account. If he chooses either, the selected action is run.
 
-If the authentication succeeds but there is not an existing app account which matches the authentication, the app attempts to gathers any necessary registration information from the service. If the app requieres additional registration information, the user sees something like "Please provide the following additional information to  complete your registration...". If the user provides the requested information, an account is created for him, he can sign-in to that account using service X in future, and his state is changed to Signed Up.
+If the authentication succeeds but there is not an existing app account which matches the authentication, the app attempts to gathers any necessary registration information from the service. If the app requires additional registration information, the user sees something like "Please provide the following additional information to  complete your registration...". If the user provides the requested information, an account is created for him, he can sign-in to that account using service X in future, and his state is changed to Signed Up.
 
 ### Sign In/Up with Service X
 
-An app should only offer this action when the user can only use one login service. When this action is performed, the app gathers credentials for service X either automatically (e.g. with an OAuth service), or directly from the user. If the credentials do not match an existing account, the app gathers any additional information needed to sign up, the user's state is changed to Signed Up (if it wasn't already), and the user is able now able to sign in to the same account using Service X. If the credentials do match an existing account, and the user is not a Guest with Data, the user is logged in to the matching account. If the credentials do match an existing account, and the user is a Guest with Data, the app provides some subset of the following actions: Delete Guest Account And Then Sign In with Service X, Merge Account Associated with Service X, Cancel.
+An app should only offer this action when the user can only use one login service. 
+
+The app runs the Authenticate with Service X action. 
+
+If the authentication fails, the user sees something like "Sign-in Failed" and his state remains unchanged. 
+
+If the authentication succeeds and there is an existing app account which matches the authentication, then:
+* If the user is a Guest with Data, he is asked whether to merge the existing account. If he chooses to, the Merge with Existing Account action is run.
+* Otherwise, he is signed-in to the existing account
+
+If the authentication succeeds but there is not an existing app account which matches the authentication, the app attempts to gathers any necessary registration information from the service. If the app requires additional registration information, the user sees something like "Please provide the following additional information to  complete your registration...". If the user provides the requested information, an account is created for him, he can sign-in to that account using service X in future, and his state is changed to Signed Up.
 
 ### Sign In as Guest
 
