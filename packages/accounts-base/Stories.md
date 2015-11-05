@@ -82,20 +82,20 @@ To avoid a lot of repetition, I'm structuring the stories in terms of the behavi
 
 ### Logged Out
 
-The user is not logged in to any account. This state does not exist in apps that automatically log users in to guest accounts. In this state the app provides some subset of the following actions: 
+The user is not logged in to any account. This state does not exist in apps that automatically log users in to guest accounts. In this state the app provides some subset of the following actions:
 * Sign In with Service X
 * Sign Up with Service X
 * Sign In/Up with Service X
-* Sign In as Guest. 
+* Sign In as Guest.
 
 ### Guest
 
-The user is logged in to an account that was created for him but he has not yet established a way to sign in to that account from another browser profile (i.e. he has not yet "signed up"). As a result, the app provides some subset of the following actions: 
+The user is logged in to an account that was created for him but he has not yet established a way to sign in to that account from another browser profile (i.e. he has not yet "signed up"). As a result, the app provides some subset of the following actions:
 * Sign In with Service X
 * Sign Up with Service X
 * Sign In/Up with Service X
 * Delete Account
-* Merge Account Associated with Service X. 
+* Merge Account Associated with Service X.
 
 #### Guest without Data
 
@@ -113,7 +113,7 @@ The user is logged in to an account that he is able to sign in to from another b
 * Sign Out
 * Delete Account
 * Switch User with Service X
-* Merge Account Associated with Service X. 
+* Merge Account Associated with Service X.
 
 If there are multiple login services, the app probably won't provide Switch User with Service X, opting instead to have the user first choose Sign Out, and then Sign In/Up with Service X. If there is only one login service, the app won't provide Add Service X and Remove Service X but is more likely to offer a Switch User action. Also, the app will not offer the Add Service X action for services that are already associated with the account, nor will it offer the Delete Service X action for services that are not associated with the account. It will also not offer any Delete Service X actions if there is only one service associated with the account.
 
@@ -135,7 +135,7 @@ This action can result in the user having a "login" associated with service X (i
 
 If the user already has a login associated with service X a successful outcome is reported.
 
-Otherwise, the app passes the information that the user has already provided (e.g. password) to the login service for service X. The login service uses that information and/or requires the user to take additional action (e.g. login to an external service that support OAuth, or follow a link in an email or SMS) to authenticate the user. The login service might also allow the user to register with an external service before authenticating and/or require that the user give the app permission to access his account on the external service. 
+Otherwise, the app passes the information that the user has already provided (e.g. password) to the login service for service X. The login service uses that information and/or requires the user to take additional action (e.g. login to an external service that support OAuth, or follow a link in an email or SMS) to authenticate the user. The login service might also allow the user to register with an external service before authenticating and/or require that the user give the app permission to access his account on the external service.
 
 The authentication process might:
 
@@ -162,9 +162,9 @@ These are actions that are initiated by the end-user.
 
 ### Sign In with Service X
 
-The app runs the Authenticate with Service X action. 
+The app runs the Authenticate with Service X action.
 
-If the authentication fails, the user sees something like "Sign-in Failed" and his state remains unchanged. 
+If the authentication fails, the user sees something like "Sign-in Failed" and his state remains unchanged.
 
 If the authentication succeeds and there is an existing app account which matches the authentication, the Login to Account action is run.
 
@@ -183,11 +183,11 @@ If the authentication succeeds but there is not an existing app account which ma
 
 ### Sign In/Up with Service X
 
-An app should only offer this action when the user can only use one login service. 
+An app should only offer this action when the user can only use one login service.
 
-The app runs the Authenticate with Service X action. 
+The app runs the Authenticate with Service X action.
 
-If the authentication fails, the app runs the Create Login with Service X action. If it is not supported, then the user sees something like "Sign-in Failed" and his state remains unchanged. 
+If the authentication fails, the app runs the Create Login with Service X action. If it is not supported, then the user sees something like "Sign-in Failed" and his state remains unchanged.
 
 If the authentication succeeds and there is an existing app account which matches the authentication, then the Login to Account action is run.
 
@@ -285,11 +285,6 @@ A login service provider developer can provide support for signing up and signin
 
 The accounts system is UI framework agnostic and does not dictate how the actions are made available to the user. For example, an app can put them in a dropdown, in the body of a page, or split across multiple pages. UI code calls into a client-side API that we provide to perform the actions.
 
-The API provides a way for the UI to determine which login services are available. 
+The API provides a way for the UI to determine which login services are available.
 
 The API provides a consistent way for UI code use the registered login services so that it doesn't need to special-case each service.
-
-
-
-
-
