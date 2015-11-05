@@ -79,7 +79,7 @@ The authentication process might:
 
 * redirect the client to a new page, causing the app to reload. The reloaded app should allow the user to continue whatever action was in process.
 * require the user to follow a link and the user might do that in a different client than the one where he initiated the sign-in process. After following the link, the user should be able to continue whatever action was in process from either the new client or the initiating client. Under some circumstances (e.g. user never follows a link), a login service might never report the outcome of the authentication. However, when the authentication outcome is reported, it can be reported to have either succeeded or failed.
-* 
+
 ### Login to Account
 
 This action isn't directly initiated by the user, but is initiated by other actions that the user can initiate and it may involve user interaction.
@@ -90,7 +90,9 @@ If the user is a Guest with Data, he sees something like "What should we do with
 
 ### Register User with Service X
 
-The app attempts to gathers any necessary registration information from the service. If the app requires additional registration information, the user sees something like "Please provide the following additional information to  complete your registration...". If the user does not provide the required information, the sign-up is canceled and the user's state remains unchanged. If he does provide the required information, it is added to his guest account if he is a Guest, or a new account if he is not. In either case, he can sign-in to the account using service X in future, and his state is changed to Signed Up.
+If the user is Signed Up, this action does nothing.
+
+Otherwise, the app attempts to gathers any necessary registration information from the service. If the app requires additional registration information, the user sees something like "Please provide the following additional information to  complete your registration...". If the user does not provide the required information, the sign-up is canceled and the user's state remains unchanged. If he does provide the required information, it is added to his guest account if he is a Guest, or a new account if he is not. In either case, he can sign-in to the account using service X in future, and his state is changed to Signed Up.
 
 ## End-User Actions
 
