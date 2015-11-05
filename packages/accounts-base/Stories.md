@@ -55,11 +55,21 @@ The user is logged in to an account that he is able to sign in to from another b
 
 If there are multiple login services, the app probably won't provide Switch User with Service X, opting instead to have the user first choose Sign Out, and then Sign In/Up with Service X. If there is only one login service, the app won't provide Add Service X and Remove Service X but is more likely to offer a Switch User action. Also, the app will not offer the Add Service X action for services that are already associated with the account, nor will it offer the Delete Service X action for services that are not associated with the account. It will also not offer any Delete Service X actions if there is only one service associated with the account.
 
-## End-user Actions
+## Internal Actions
+
+These actions aren't directly initiated by the user, but are used by other actions that the user can initiate and they typically involve user interaction.
+
+### Create Login with Service X
+
+This action can result in the user having a "login" associated with service X (i.e. he has successfully authenticated with service X), even though the user might not be able to use the login to sign-in to an account yet.
+
+If the login service for service X is not capable of trying to create a login for service X, the outcome reported to the calling action is "not supported".
+
+If the login service for service X is capable of trying to create a login for service X, the app gathers any credentials required (e.g. user's requested username/email/password) and initiates the login creation process. If the login is created successfully, the Register User with Service X action is run. If it fails due to a conflicting account, the user is asked whether he wants to sign-in to the conflicting account. If he does not, his state remains unchanged and the calling action is canceled. Otherwise the Login to Account action is run.
 
 ### Authenticate with Service X
 
-This action isn't directly initiated by the user, but is initiated by other actions that the user can initiate and it is user visible. It can result in the user having a "login" associated with service X (i.e. he has successfully authenticated with service X), even though the user might not be able to use the login to sign-in to an account yet.
+This action can result in the user having a "login" associated with service X (i.e. he has successfully authenticated with service X), even though the user might not be able to use the login to sign-in to an account yet.
 
 If the user already has a login associated with service X a successful outcome is reported.
 
@@ -69,31 +79,43 @@ The authentication process might:
 
 * redirect the client to a new page, causing the app to reload. The reloaded app should allow the user to continue whatever action was in process.
 * require the user to follow a link and the user might do that in a different client than the one where he initiated the sign-in process. After following the link, the user should be able to continue whatever action was in process from either the new client or the initiating client. Under some circumstances (e.g. user never follows a link), a login service might never report the outcome of the authentication. However, when the authentication outcome is reported, it can be reported to have either succeeded or failed.
+* 
+### Login to Account
+
+This action isn't directly initiated by the user, but is initiated by other actions that the user can initiate and it may involve user interaction.
+
+If the user is not a Guest with Data, he is logged in to the account and his state is changed to Signed Up.
+
+If the user is a Guest with Data, he sees something like "What should we do with your guest account? [Delete It and Sign-In] [Keep It and Cancel Sign-In] [Merge It]". If he chooses "Delete it and Sign-In", his guest account is deleted, he is logged in to the other account, and the calling action continues. If he chooses "Merge It", the user's guest account and the other account are merged in an app-specific manner (potentially with user input), the user is logged in to the merged account, and as a result his state is Signed Up.
+
+### Register User with Service X
+
+The app attempts to gathers any necessary registration information from the service. If the app requires additional registration information, the user sees something like "Please provide the following additional information to  complete your registration...". If the user does not provide the required information, the sign-up is canceled and the user's state remains unchanged. If he does provide the required information, it is added to his guest account if he is a Guest, or a new account if he is not. In either case, he can sign-in to the account using service X in future, and his state is changed to Signed Up.
+
+## End-User Actions
+
+These are actions that are initiated by the end-user.
 
 ### Sign In with Service X
 
-If the user is currently a Guest with Data, he is asked to confirm that he wants to delete his guest account before continuing. If he does not confirm, his state remains unchanged. If he does confirm or he is not a Guest with Data, the app runs the Authenticate with Service X action. 
+The app runs the Authenticate with Service X action. 
 
 If the authentication fails, the user sees something like "Sign-in Failed" and his state remains unchanged. 
 
-If the authentication succeeds and there is an existing app account which matches the authentication, the user is logged in to the matching account, and if the user was a Guest, his guest account is deleted.
+If the authentication succeeds and there is an existing app account which matches the authentication, the Login to Account action is run.
 
-If the authentication succeeds but there is not an existing app account which matches the authentication, the user's state remains unchanged and the user sees something like "You don't yet have an account in this application associated your X login. Would you like to create one, or try a different login?". If the users chooses the "create one" option, he follows the "Sign Up with Service X" flow.
+If the authentication succeeds but there is not an existing app account which matches the authentication, the user's state remains unchanged and the user sees something like "You don't yet have an account in this application associated your X login. Would you like to sign up using that login, or try a different login?". If the users chooses the "sign up" option, the Register User with Service X action is run.
 
 
 ### Sign Up with Service X
 
-The app gathers any credentials required to support future sign in using service X (e.g. user's requested username/email/password) and initiates the process of creating an account associated with service X. 
-
-If the login service determines that a conflicting account already exists, the user is asked whether he wants to sign-in to the existing account or, if he is a guest with data, merge the existing account. If he chooses either, the actions are run. Otherwise, the user's state remains unchanged and the sign up is canceled.
-
-Otherwise, if the user has not already authenticated with service X (e.g. as part of a sign in attempt), the login service attempts to create a login for service X using any credentials needed by the service. If the service can use that information to directly create a login, it does so. Otherwise, it runs the Authenticate with Service X action and handles the outcome as follows:
+The app runs the Create Login with Service X action. If it is not supported, the app runs the Authenticate with Service X action and handles it's outcome as follows:
 
 If the authentication fails, the user sees something like "Sign-in Failed", his state remains unchanged, and the sign-up is canceled.
 
-If the authentication succeeds and there is an existing app account which matches the authentication, the user is asked whether he wants to sign-in to the existing account or, if he is a guest with data, merge the existing account. If he chooses either, the selected action is run.
+If the authentication succeeds and there is an existing app account which matches the authentication, the Login to Account action is run.
 
-If the authentication succeeds but there is not an existing app account which matches the authentication, the app attempts to gathers any necessary registration information from the service. If the app requires additional registration information, the user sees something like "Please provide the following additional information to  complete your registration...". If the user provides the requested information, an account is created for him, he can sign-in to that account using service X in future, and his state is changed to Signed Up.
+If the authentication succeeds but there is not an existing app account which matches the authentication, the Register User with Service X action is run.
 
 ### Sign In/Up with Service X
 
@@ -101,13 +123,11 @@ An app should only offer this action when the user can only use one login servic
 
 The app runs the Authenticate with Service X action. 
 
-If the authentication fails, the user sees something like "Sign-in Failed" and his state remains unchanged. 
+If the authentication fails, the app runs the Create Login with Service X action. If it is not supported, then the user sees something like "Sign-in Failed" and his state remains unchanged. 
 
-If the authentication succeeds and there is an existing app account which matches the authentication, then:
-* If the user is a Guest with Data, he is asked whether to merge the existing account. If he chooses to, the Merge with Existing Account action is run.
-* Otherwise, he is signed-in to the existing account
+If the authentication succeeds and there is an existing app account which matches the authentication, then the Login to Account action is run.
 
-If the authentication succeeds but there is not an existing app account which matches the authentication, the app attempts to gathers any necessary registration information from the service. If the app requires additional registration information, the user sees something like "Please provide the following additional information to  complete your registration...". If the user provides the requested information, an account is created for him, he can sign-in to that account using service X in future, and his state is changed to Signed Up.
+If the authentication succeeds but there is not an existing app account which matches the authentication, the Register User with Service X action is run.
 
 ### Sign In as Guest
 
