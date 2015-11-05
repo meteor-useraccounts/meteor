@@ -1,48 +1,81 @@
 # Introduction
 
-These are the stories that motivate the design of the accounts system. Although a particular app might not support all of these stories and some stories might be even be incompatible with each other, the accounts system itself should allow an app to support any combination of mutually compatible stories.
+These are the stories that motivate the design of the accounts system.
+Although a particular app might not support all of these stories and some
+stories might be even be incompatible with each other, the accounts system
+itself should allow an app to support any combination of mutually compatible
+stories.
 
 ## Terminology
 
 ### End-User
 
-A person using the app, whether or not he has an account or any identities. In end-user stories, this person is just referred to as the "user".
+A person using the app, whether or not he has an account or any identities.
+In End-User Stories, this person is just referred to as the "user".
 
 ### Client
 
-The browser or other app that the user is using to access the application.
+The browser or device that the end-user is accessing the application from.
 
 ### Identity
 
-Who a user is, according to some login service. A user may have multiple identities. The accounts system does not know that a user has an identity until a login service tells it so. Normally when we refer to user having one or more identities, we are referring to the identities that the accounts system is aware of.
+Who a user is, according to some identity service. A user may have multiple
+identities. The accounts system does not know if a user has an identity until an
+identity service provides one. Normally when we refer to user having one or more
+identities, we are referring to the identities that the accounts system are
+aware of.
 
-### Login Service
+### Identity service
 
-A service that the accounts system can use to allow a user to authenticate himself as having an identity. Some login services also provide access to additional information or services associated with the user's identity (e.g. user's name and email, or ability to create a social media post). Some login services also provide a way for the accounts system to create a new identity (e.g. `accounts-password`). A login service might be implemented entirely within Meteor (e.g. `accounts-password`) or it might use an external service.
+A service that the accounts system can use to allow an end-user to authenticate
+himself as having an identity. An identity service might also provide access to
+additional information or services associated with the end-user's identity
+(e.g. user's name and email, or ability to create a social media post).
+An identity services might also provide a way for the accounts system to create
+a new identity (e.g. `accounts-password`). An identity service might be
+implemented entirely within Meteor (e.g. `accounts-password`) or it might use an
+external service (e.g. `google`).
 
 ### External Service
 
-A service that a login service uses to authenticate a user and/or create identities. Examples include OAuth services provided by Google, Facebook, etc, as well as non-OAuth services provided by some client platforms like a fingerprint-based authentication service.
+A service that an identity service uses to authenticate an end-user and/or
+create identities. Examples include OAuth services provided by Google, Facebook,
+etc. As well as non-OAuth services provided by some client platforms like a
+fingerprint-based authentication service.
 
 ### Authentication
 
-The process by which a user proves to a login service that he has a particular identity. This typically involves presenting credentials to the login service or the external service.
+The process by which an end-user proves to an identity service that he has a
+particular identity. This typically involves presenting credentials to the
+identity service or the external service.
 
 ### Credentials
 
-The proof required by a login service or an external service in order to authenticate that a user has a particular identity. For `accounts-password`, this is a password and a username or email. For `accounts-google`, if the user is already signed into to Google, this is a token stored in the user's client; otherwise it is the user's Google email/password possibly along with other information like an authentication code.
+The proof required by an identity service or an external service in order to
+authenticate that an end-user has a particular identity.
+For `accounts-password`, this is a username or email and a password.
+For `accounts-google`, if the user is already signed into to Google, this is a
+token stored in the end-user's client; otherwise it is the end-user's Google
+email and password possibly along with other information like an authentication
+code.
 
 ### Account
 
-An application object that is associated with one or more of a particular user's identities. There is at most one account associated with any identity. 
+An application object that is associated with one or more identities of a
+particular end-user. There is at most one account associated with any identity.
 
 ### Logging In
 
-The process by which a user uses one of his identities to gain access to an account. Once this occurs, `Meteor.userId()` returns a unique identifier for the account associated with the current user, and `Meteor.user()` returns the account object. 
+The process by which an end-user uses one of his identities to gain access to
+an account. Once this occurs, `Meteor.userId()` returns a unique identifier for
+the account associated with one or more of the end-user's identities; and
+`Meteor.user()` returns the account object.
 
 ### Guest Identity
 
-An identity created for and possessed by a user but for which the user does not generally have access to credentials that would allow him to authenticate as that identity from another client.
+An identity created for and possessed by an end-user, but for which the end-user
+does not generally have access to credentials that would allow him to
+authenticate as this identity from another client.
 
 ### Guest Account
 
@@ -50,15 +83,21 @@ An account for which the only associated identity is a guest identity.
 
 ### Guest
 
-A user who is logged into a guest account.
+An end-user who is logged into a guest account.
+
+### Anonymous User
+
+An end-user who is not logged into any account, not even a guest account.
 
 ### Registered Account
 
-An account that it is associated with at least one non-guest identity and contains any other user information required by the application.
+An account that it is associated with at least one non-guest identity and
+contains any other user information required by the application.
 
 ### Registration
 
-The process of creating a registered account or updating an account so that it is a registered account.
+The process of creating a registered account or updating an account so that it
+is a registered account.
 
 ### TODO
 
