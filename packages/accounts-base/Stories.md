@@ -68,7 +68,7 @@ particular end-user. There is at most one account associated with any identity.
 
 The process by which an end-user uses one of his identities to gain access to
 an account. Once this occurs, `Meteor.userId()` returns a unique identifier for
-the account associated with identity that the user used; and
+the account associated with the identity that the user used; and
 `Meteor.user()` returns the account object itself.
 
 ### Guest Identity
