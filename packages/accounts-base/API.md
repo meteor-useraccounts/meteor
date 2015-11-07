@@ -98,6 +98,32 @@ identity.  Throws an exception if
 
 * the user is not logged in to an account
 
+### `Accounts.getIdentities()`
+
+Returns the identities that can be used to login to the current user's
+account. Throws an exception if
+
+* the user is not logged in to an account
+
+Note: The returned identities are intended to be used to support showing the
+user which identities can login to his account and to allow the user to remove
+an identity from his account. For security reasons, the identities can't be
+passed to `Accounts.login` or `Accounts.addIdentity` because the current client
+hasn't authenticate as them. As an example of the security concern, consider an
+app that restricts certain access to users who have logged in to an account
+using an identity from the VerySecure service. The victim's account can be
+logged into using either a VerySecure identity or a LessSecure identity. The
+victim is on a client that he knows is at risk, so he logs in using his
+LessSecure identity. The attacker gains access to the victim's logged in client
+and calls `Accounts.getIdentities`. If the VerySecure identity that is returned
+can be passed to `Accounts.login` then the attacker can gain the associated
+privileged access. The attacker _can_ remove the VerySecure identity from the
+account, thereby denying the victim privileged access. However, the victim can
+presumably re-authenticate and re-add the VerySecure identity, or have an
+administrator do so. Also, we must allow a user to remove an identity that he
+can't authenticate as so that he has a way to remove an identity added by an
+attacker or one over which he has lost control.
+
 ### `Accounts.removeIdentity(identity, [optionalCallback])`
 
 Deny login to the current user's account using the specified
