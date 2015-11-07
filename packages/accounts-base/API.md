@@ -264,6 +264,10 @@ Have `Accounts.addIdentity` call a new server method uses the identity token to
 find the identity document and updates it's `accountId` to refer to the current
 user's account.
 
+Have `Accounts.create`, `Accounts.login`, and `Accounts.addIdentity` also copy
+the service data they use into the 'services' property of the account so that
+`Meteor.loginWith*` methods continue to work when called directly.
+
 ## Security considerations
 
 ### Identity service must not authenticate based only on link-following
