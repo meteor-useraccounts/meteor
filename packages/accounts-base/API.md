@@ -349,3 +349,18 @@ createIdentityForToken(token) {
 ```
 
 # Other Ideas
+
+## Should we make the identity object internal or optional?
+
+We could have the identity implementation internally keep track of the
+identities that the client has created/authenticated. `Accounts.login`,
+`Accounts.create`, and `Accounts.addIdentity` could then either not take an
+identity argument at all or it could be optional. If it is not provided the
+implementation would use the most recently created/authenticated identity. This
+would simplify the API syntax but it introduces new global state which might
+cause headaches. In particular, I'm thinking of the case where the user is
+trying to sign-up using identity A and, after the user has authenticated as A
+but while the UI is gathering additional registration information to create an
+account for the user, the client somehow authenticates as identity B. When the
+UI calls `Accounts.create`, I'm not sure it makes sense to associate the created
+account with identity B (the most recently authenticated identity).
