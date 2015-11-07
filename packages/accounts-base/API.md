@@ -84,10 +84,10 @@ Throws an exception if:
 
 * an account associated with the identity doesn't exists
 
-### `Accounts.createAccount(identity, options, [optionalCallback])`
+### `Accounts.create(identity, options, [optionalCallback])`
 
-Create an account associated with the specified identity. Throws an exception
-if:
+Create an account that can be logged into with the specified identity. Throws an
+exception if:
 
 * an account associated with the identity already exists
 
