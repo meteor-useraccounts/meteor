@@ -323,12 +323,3 @@ createIdentityForToken(token) {
 ```
 
 # Other Ideas
-
-### Implementation
-
-After a login handler returns the user id of the matching user, we check to see
-whether that user has an `_aliasFor` property. If it does, we use that
-property's value as the real user id from then on.
-`Accounts.AddAlias(idOfAliasAccount)` and `Accounts.removeAlias()` manage the
-`_aliasFor` property and perform safety checks to avoid developers accidentally
-introducing security vulnerabilities.
