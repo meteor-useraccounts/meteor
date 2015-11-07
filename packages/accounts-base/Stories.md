@@ -103,8 +103,8 @@ is a registered account.
 
 The end-user has the following characteristics:
 
-* he might not remember whether he already has an account and/or which service(s)
-he has associated with the account
+* he might not remember whether he already has an account and/or which
+service(s) he has associated with the account
 
 * he wants to be able to sign-up for an account if he doesn't have one
 
@@ -225,6 +225,19 @@ identity creation. If the user cancels the identity creation, the initiating
 action is canceled and the user's state remains unchanged. If an identity is
 successfully created it, that is reported to the calling action.
 
+The identity creation process might:
+
+* redirect the client to a new page, causing the app to reload. The reloaded app
+should allow the user to continue whatever action was in process.
+
+* require the user to follow a link and the user might do that in a different
+client than the one where the process started. After following
+the link, the user should be able to continue whatever action was in process
+from the new client. Under some circumstances (e.g. user never follows
+a link), an identity service might never report the outcome of the identity
+creation. However, whenever the outcome is reported, it can
+be reported to have either succeeded or failed. 
+
 ### Authenticate with Service X
 
 This action can result in the user having an identity associated with service X
@@ -248,11 +261,11 @@ The authentication process might:
 should allow the user to continue whatever action was in process.
 
 * require the user to follow a link and the user might do that in a different
-client than the one where he initiated the sign-in process. After following
+client than the one where the process started. After following
 the link, the user should be able to continue whatever action was in process
-from either the new client. Under some circumstances (e.g. user never follows
-a link), a identity service might never report the outcome of the
-authentication. However, when the authentication outcome is reported, it can
+from the new client. Under some circumstances (e.g. user never follows
+a link), an identity service might never report the outcome of the
+authentication. However, whenever the outcome is reported, it can
 be reported to have either succeeded or failed. 
 
 ### Login to Account
