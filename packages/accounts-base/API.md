@@ -228,7 +228,7 @@ set by `Identity.authenticate('password', options, state), and change the
 options passed to the server to indicate that the call was initiated by
 `Identity.authenticate`.
 
-Create a new `Meteor.identities` collection. Each document in the collection
+Create a new `Identity.identities` collection. Each document in the collection
 will look like:
 
 ```js
@@ -247,13 +247,13 @@ identity.
 
 Add a `Meteor.validateLoginAttempt` handler that checks whether the login
 attempt originated from `Identity.authenticate` and `Identity.create` and, if it
-does, upserts a document into the  `Meteor.identities` collection corresponding
+does, upserts a document into the  `Identity.identities` collection corresponding
 to the service property used to login, and throws a
 `Meteor.Error('identity-upserted', identityToken)` error. 
 
 Add a `Meteor.validateNewUser` handler that checks whether the user document has
 a `services` property and, if it does, upserts a document into the
-`Meteor.identities` collection corresponding to the first (and typically only)
+`Identity.identities` collection corresponding to the first (and typically only)
 service, and throws a `Meteor.Error('identity-upserted', identityToken)`
 error. 
 
