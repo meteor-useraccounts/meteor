@@ -277,6 +277,13 @@ Have `Accounts.create`, `Accounts.login`, and `Accounts.addIdentity` also copy
 the service data they use into the 'services' property of the account so that
 `Meteor.loginWith*` methods continue to work when called directly.
 
+Change `Meteor.logout` and `Meteor.logoutOtherClients` to destroy all identity
+tokens in identities that refer to the current user's account. This ensures that
+the user will need to reauthenticate an identities in order to use it to login.
+Handling of login tokens remains unchanged, so that calling `Meteor.logout` on
+one client will not force the user to reauthenticate on another client where he
+has already logged in.
+
 ## Security considerations
 
 ### Identity service must not authenticate based only on link-following
