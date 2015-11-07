@@ -135,6 +135,17 @@ identity.  Throws an exception if
 
 ## Server-side
 
+### `Identity.validateNewIdentity(func)`
+
+Set policy controlling whether new identities are added to the database.
+Analogous to `Accounts.validateNewUser`, but for identities instead of accounts.
+
+### `Identity.validateAuthenticationAttempt(func)`
+
+Set policy controlling whether an identity is returned to the client. Analogous
+to `Accounts.validateLoginAttempt`, but for authenticating as an identity
+instead of logging in to an account.
+
 ### `Accounts.addSignedUpInterceptor(func)`
 
 `func` is called to determine whether a user has a registered account. For
