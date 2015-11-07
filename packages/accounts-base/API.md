@@ -10,7 +10,6 @@ Here is an example:
 
 ```
 options = {
-  treatAs: 'createUser', // Used when calling legacy providers, see Accounts.setMethodOptions()
   username: 'elpresidente',
   email: 'george.washington@gmail.com',
   appData: appSpecificObjectWithOtherDataProvidedDuringRegistrationEtc
@@ -92,7 +91,7 @@ if:
 
 * an account associated with the identity already exists
 
-### `Accounts.addIdentity(identity, options, [optionalCallback])`
+### `Accounts.addIdentity(identity, [optionalCallback])`
 
 Make it possible to login to the current user's account using the specified
 identity.  Throws an exception if
@@ -100,22 +99,6 @@ identity.  Throws an exception if
 * the user is not logged in to an account
 
 ## Server-side
-
-### `Accounts.addAlias(idOfAliasAccount)`
-
-Makes the account with specified id into an alias for the current user's
-account. That means that logging into the alias account will actually result in
-logging into the current user's account. Alias accounts can be used to allow a
-user to login to one account using multiple identities on the same service. They
-can also be used to identify existing accounts which should be merged. This
-fails if the current user does not have an account or if the requested alias
-account is already an alias for some other account.
-
-### `Accounts.removeAlias(idOfAliasAccount)`
-
-Fails if the account with the specified id is not an alias account for the
-current user's account or if there is no current user. Otherwise, makes the
-specified account no longer an alias.
 
 ### `Accounts.addSignedUpInterceptor(func)`
 
@@ -151,34 +134,7 @@ provides the same email address is a betrayal of the user's trust.
 Passing `true` for `overrideLogin` indicates that you understand the risks and
 still want to change to another user.
 
-# Implementation Ideas
-
-## Alias Accounts
-
-After a login handler returns the user id of the matching user, we check to see
-whether that user has an `_aliasFor` property. If it does, we use that
-property's value as the real user id from then on.
-`Accounts.AddAlias(idOfAliasAccount)` and `Accounts.removeAlias()` manage the
-`_aliasFor` property and perform safety checks to avoid developers accidentally
-introducing security vulnerabilities.
-
-## Identity IDs
-
-Before authenticating the user, an identity service generates a secure GUID to
-use as an "identity ID". It passes it to `Identity.addId(identityId)` on the
-client and, if necessary, also passes it as part of the "state" that might end
-up in a separate client if the authentication process ends in a different
-browser than the one where it started. In the (potentially different) client,
-the identity service completes the authentication process, stores the "identity
-ID" in a new server-side object and passes the identity ID to
-`Identity.addId(identityId)`. User can then use either client to register, by
-gathering any additional registration information from the user,
-asking/confirming which identities to link to the new account, and passing the
-identity IDs into `Accounts.create` along with the other information required to
-register. The server uses the identity IDs to finds the existing server-side
-objects and link them to the new account. 
-
-## Separate creating identities from creating accounts
+# Basic Client-Side Usage Example
 
 Sign-in with Service X:
 ```js
@@ -193,12 +149,184 @@ if (!Identity.create(serviceName, options, state)) {
 }
 ```
 
+Add Service X:
+```js
+var state = "AddingIdentity";
+if (!Identity.create(serviceName, options, state)) {
+  Identity.authenticate(serviceName, options, state);
+}
+```
+
 Common top-level code:
 ```js
 Identity.onAttemptCompletion((err, service, method, state, identity) => {
   if (state === 'SigningUp') {
     Accounts.create(identity);
+    Accounts.login(identity);
+  } else if (state === 'AddingIdentity') {
+    if (Meteor.userId()) {
+      // Require user confirmation to prevent an attacker from adding his
+      // identity to a victim's account by getting a logged in victim to follow
+      // a link which an identity service uses to authenticate the link-follower
+      // as the attacker.
+      if (window.confirm(`Allow ${identity} to sign-in to your account?`)) {
+        Accounts.addIdentity(identity);        
+      }
+    } else {
+      window.alert(`You must be signed in to add ${identity} to your account`);
+    }
+  } else {
+    Accounts.login(identity);    
   }
-  Accounts.login(identity);
 });
 ```
+
+# Implementation Ideas
+
+## General
+
+Have `Identity.create('password', options, state)` wrap
+`Accounts.createUser(options, callback)` such that:
+
+* the options passed to `Accounts.createUser` indicate that the call was
+initiated by `Identity.create`
+
+* the callback passes the `state` to the `Identity.onAttemptCompletion`
+callbacks.
+
+Have `Identity.authenticate(serviceOtherThanPassword, options, state)` wrap
+`Meteor.loginWith<service>(options, callback)` such that:
+
+* the options passed to `Meteor.loginWith<service>` indicate that the call was
+initiated by `Identity.authenticate` and `options.redirectUri` passes `state` to
+an endpoint that can pass it on to `Identity.onAttemptCompletion` 
+callbacks.
+
+* the callback passes the `state` to the `Identity.onAttemptCompletion` 
+callbacks.
+
+Have `Identity.authenticate('password', options, state)` wrap
+`Meteor.loginWithPassword(user, password, callback)` such that:
+
+* the callback function object has a property indicating that the call was
+initiated by `Identity.authenticate`.
+
+* the callback passes the `state` to the `Identity.onAttemptCompletion` 
+callbacks.
+
+Change `Accounts._callLoginMethod()` to detect the callback function property
+set by `Identity.authenticate('password', options, state), and change the
+options passed to the server to indicate that the call was initiated by
+`Identity.authenticate`.
+
+Create a new `Meteor.identities` collection. Each document in the collection
+will look like:
+
+```js
+{
+  serviceName: 'google',
+  serviceCredentials: { ... }, // same as `services.google` in user document
+  identityCredentials: { ... }, // similar to `services.resume` in user doc
+  accountId: 'WEavsd123' // undefined or ID of account the identity can login to
+}
+```
+
+The `identityCredentials` are used to create identity tokens in the same way
+that the `resume` service creates login tokens. If a user's client has a valid
+identity token then the user has been authenticated as the corresponding
+identity.
+
+Add a `Meteor.validateLoginAttempt` handler that checks whether the login
+attempt originated from `Identity.authenticate` and `Identity.create` and, if it
+does, upserts a document into the  `Meteor.identities` collection corresponding
+to the service property used to login, and throws a
+`Meteor.Error('identity-upserted', identityToken)` error. 
+
+Add a `Meteor.validateNewUser` handler that checks whether the user document has
+a `services` property and, if it does, upserts a document into the
+`Meteor.identities` collection corresponding to the first (and typically only)
+service, and throws a `Meteor.Error('identity-upserted', identityToken)`
+error. 
+
+Change `Accounts._callLoginMethod()` to detect the returned `identity-upserted`
+errors and pass the identity token to the `Identity.onAttemptCompletion`
+callbacks.
+
+Have `Accounts.create` call a new server method that uses the identity token to
+find the identity document and updates it's `accountId` to refer to the new
+account.
+
+Have `Accounts.login` call a new server login method that uses the identity
+token to find the identity document and log the user into the account referred
+to by it's `accountId`.
+
+Have `Accounts.addIdentity` call a new server method uses the identity token to
+find the identity document and updates it's `accountId` to refer to the current
+user's account.
+
+## Security considerations
+
+### Identity service must not authenticate based only on link-following
+
+Consider an identity service which authenticates the user's identity by sending
+a one-time link to him via email or SMS. The identity service assumes that the
+first user to follow the link has the desired identity. However, before
+authenticating the user it is critical that the service verify that the user
+actually _wants_ to be authenticated as the identity. Failure to do so can
+result in a victim being unknowingly logged into an attacker's account, or the
+attacker's identity being added to the victim's account.
+
+The latter can be prevented by having the initiating client associate a secret
+with the user's account, pass the secret as part of the state, and then, on the
+completing client, confirm that the secret in the state matches the secret in
+the user's account before calling `Accounts.addIdentity()`. This could actually
+be done automatically within `Identity.create` and `Identity.authenticate` and
+whatever calls the `Identity.onAttemptCompletion` callbacks.
+
+### Identity tokens must be secured
+
+Identity tokens are as sensitive as login tokens. Login tokens are stored in
+local storage, but since identity tokens are only needed briefly that is not
+necessary. However, since the new API exposes identity objects that can be used
+to login while the old API did not expose login tokens, we need to ensure that
+the developer does not accidentally share an identity tokens by trying to share
+an identity object. To achieve this we can store the identity tokens itself in a
+function closure attached to the identity object. Like this:
+
+```js
+createIdentityForToken(token) {
+  return {
+    getToken(): function () { return token; },
+    ...
+  };
+}
+```
+
+# Other Ideas
+
+## Alias accounts
+
+### `Accounts.addAlias(idOfAliasAccount)`
+
+Makes the account with specified id into an alias for the current user's
+account. That means that logging into the alias account will actually result in
+logging into the current user's account. Alias accounts can be used to allow a
+user to login to one account using multiple identities on the same service. They
+can also be used to identify existing accounts which should be merged. This
+fails if the current user does not have an account or if the requested alias
+account is already an alias for some other account.
+
+### `Accounts.removeAlias(idOfAliasAccount)`
+
+Fails if the account with the specified id is not an alias account for the
+current user's account or if there is no current user. Otherwise, makes the
+specified account no longer an alias.
+
+### Implementation
+
+After a login handler returns the user id of the matching user, we check to see
+whether that user has an `_aliasFor` property. If it does, we use that
+property's value as the real user id from then on.
+`Accounts.AddAlias(idOfAliasAccount)` and `Accounts.removeAlias()` manage the
+`_aliasFor` property and perform safety checks to avoid developers accidentally
+introducing security vulnerabilities.
