@@ -93,10 +93,19 @@ if:
 
 ### `Accounts.addIdentity(identity, [optionalCallback])`
 
-Make it possible to login to the current user's account using the specified
+Allow login to the current user's account using the specified
 identity.  Throws an exception if
 
 * the user is not logged in to an account
+
+### `Accounts.removeIdentity(identity, [optionalCallback])`
+
+Deny login to the current user's account using the specified
+identity.  Throws an exception if
+
+* the user is not logged in to an account
+
+* the identity can not be used to login to the user's account
 
 ## Server-side
 
@@ -307,24 +316,6 @@ createIdentityForToken(token) {
 ```
 
 # Other Ideas
-
-## Alias accounts
-
-### `Accounts.addAlias(idOfAliasAccount)`
-
-Makes the account with specified id into an alias for the current user's
-account. That means that logging into the alias account will actually result in
-logging into the current user's account. Alias accounts can be used to allow a
-user to login to one account using multiple identities on the same service. They
-can also be used to identify existing accounts which should be merged. This
-fails if the current user does not have an account or if the requested alias
-account is already an alias for some other account.
-
-### `Accounts.removeAlias(idOfAliasAccount)`
-
-Fails if the account with the specified id is not an alias account for the
-current user's account or if there is no current user. Otherwise, makes the
-specified account no longer an alias.
 
 ### Implementation
 
