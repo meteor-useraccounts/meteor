@@ -27,7 +27,7 @@ options = {
 The idea is to document and reserve some property names, and provide `services`
 so that identity services can use namespaced options as needed.
 
-## Client-side
+## Client-side API for app developers
 
 
 ### `Identity.create(service, options, [optionalStateString])`
@@ -133,7 +133,39 @@ identity.  Throws an exception if
 
 * the identity can not be used to login to the user's account
 
-## Server-side
+## Client-side API for identity service developers
+
+### `Identity.registerService(identityService)`
+
+Register `identityService` as an identity service. 
+
+`identityService.name` is the name of the identity service.
+
+`identityService.authenticate` is a required function which takes the same
+parameters as `Identity.authenticate` (including `service`) and initiates
+authentication of the user's identity with the identity service.
+
+`identityService.create` is an optional function which takes the same parameters
+as `Identity.create` (including `service`) and initiates creation of
+a new identity with the identity service.
+
+### `Identity.createWithLoginMethod(func)`
+
+Call `func` but cause it to create an identity whenever it would have created an
+account. While `func` is running, any calls to server-side login methods on the
+default connection that would normally caused the creation of an account (i.e.
+cause the `Accounts.validateNewUser` callbacks to run), will not create an
+account and will instead create an identity. The identity will be from the
+server-side login method in a special error object. Use
+`Identity.fireAttemptCompletion` to extract the identity and fire the
+`Identity.onAttemptCompletion` callbacks.
+
+### `Identity.fireAttemptCompletion(err, state)`
+
+Filters any identity out of `err` and passes it and `state` to each of the
+`Identity.onAttemptCompletion` callbacks.
+
+## Server-side API
 
 ### `Identity.validateNewIdentity(func)`
 
@@ -231,39 +263,63 @@ Identity.onAttemptCompletion((err, service, method, state, identity) => {
 
 ## General
 
-Have `Identity.create('password', options, state)` wrap
-`Accounts.createUser(options, callback)` such that:
+### `Identity.createWithLoginMethod`
 
-* the options passed to `Accounts.createUser` indicate that the call was
-initiated by `Identity.create`
+On client: 
+```js
+Identity.createWithLoginMethod = (func, callback) {
+  Meteor.call('Identity.setCreateIdentity', [true], (err) => {
+    if (err && callback) return callback.call(err);
+    try {
+      func();
+    } finally {
+      Meteor.call('Identity.setCreateIdentity', [false], (err) => {
+        if (err && callback) return callback.call(err);
+      });
+    }    
+  });
+}
+```
 
-* the callback passes the `state` to the `Identity.onAttemptCompletion`
-callbacks.
+On server: 
+```js
+Meteor.methods({
+  'Identity.setCreateIdentity': function(flag) {
+    // Set a flag on the current connection that we can check from our
+    // `Accounts.validateNewUser` callback.
+  }
+})
+```
 
-Have `Identity.authenticate(serviceOtherThanPassword, options, state)` wrap
-`Meteor.loginWith<service>(options, callback)` such that:
+### Password identity service
 
-* the options passed to `Meteor.loginWith<service>` indicate that the call was
-initiated by `Identity.authenticate` and `options.redirectUri` passes `state` to
-an endpoint that can pass it on to `Identity.onAttemptCompletion` 
-callbacks.
+```js
+Identity.registerService({
+  name: 'password',
+  create: (service, options, state) => {
+    Identity.createWithLoginMethod(() => {
+      options = _.pick(options, 'user', 'username', 'email', 'password');
+      Accounts.createUser(options, (err) => {
+        Identity.fireAttemptCompletion(err, state);
+      });
+    });
+  },
+  authenticate: (service, options, state) => {
+    Identity.createWithLoginMethod(() => {
+      var user = options.user || options.username || options.email;
+      Meteor.loginWithPassword(user, password, (err) => {
+        Identity.fireAttemptCompletion(err, state);
+      });
+    });
+  }
+});
+```
 
-* the callback passes the `state` to the `Identity.onAttemptCompletion` 
-callbacks.
+### OAuth-based identity services
 
-Have `Identity.authenticate('password', options, state)` wrap
-`Meteor.loginWithPassword(user, password, callback)` such that:
+TODO
 
-* the callback function object has a property indicating that the call was
-initiated by `Identity.authenticate`.
-
-* the callback passes the `state` to the `Identity.onAttemptCompletion` 
-callbacks.
-
-Change `Accounts._callLoginMethod()` to detect the callback function property
-set by `Identity.authenticate('password', options, state), and change the
-options passed to the server to indicate that the call was initiated by
-`Identity.authenticate`.
+### Server-side stuff
 
 Create a new `Identity.identities` collection. Each document in the collection
 will look like:
@@ -282,21 +338,18 @@ that the `resume` service creates login tokens. If a user's client has a valid
 identity token then the user has been authenticated as the corresponding
 identity.
 
-Add a `Meteor.validateLoginAttempt` handler that checks whether the login
-attempt originated from `Identity.authenticate` and `Identity.create` and, if it
-does, upserts a document into the  `Identity.identities` collection corresponding
-to the service property used to login, and throws a
+Add a `Meteor.validateLoginAttempt` handler that checks whether the connection's
+'create identity' flag is set and, if it is, upserts a document into the
+`Identity.identities` collection corresponding to the service property used to
+login, and throws a `Meteor.Error('identity-upserted', identityToken)` error. 
+
+Add a `Meteor.validateNewUser` handler that checks whether the connection's
+'create identity' flag is set and the user document has a `services` property
+and, if it so, upserts a document into the `Identity.identities` collection
+corresponding to the first (and typically only) service, and throws a
 `Meteor.Error('identity-upserted', identityToken)` error. 
 
-Add a `Meteor.validateNewUser` handler that checks whether the user document has
-a `services` property and, if it does, upserts a document into the
-`Identity.identities` collection corresponding to the first (and typically only)
-service, and throws a `Meteor.Error('identity-upserted', identityToken)`
-error. 
-
-Change `Accounts._callLoginMethod()` to detect the returned `identity-upserted`
-errors and pass the identity token to the `Identity.onAttemptCompletion`
-callbacks.
+### Miscellaneous
 
 Have `Accounts.create` call a new server method that uses the identity token to
 find the identity document and updates it's `accountId` to refer to the new
