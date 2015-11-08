@@ -149,13 +149,15 @@ authentication of the user's identity with the identity service.
 as `Identity.create` (including `service`) and initiates creation of
 a new identity with the identity service.
 
-### `Identity.createWithLoginMethod(func)`
+### `Identity.establishWithLoginMethod(func)`
 
-Call `func` but cause it to create an identity whenever it would have created an
-account. While `func` is running, any calls to server-side login methods on the
-default connection that would normally caused the creation of an account (i.e.
-cause the `Accounts.validateNewUser` callbacks to run), will not create an
-account and will instead create an identity. Use
+Call `func` but cause it to establish an identity (create or authenticate)
+whenever it would have created or logged a user into account. While `func` is
+running, any calls to server-side login methods on the default connection that
+would normally cause the creation of an account (i.e. cause the
+`Accounts.validateNewUser` callbacks to run) or a login attempt (i.e.
+`Accounts.validateLoginAttempt` callbacks to run), will not create an account or
+log the user in and will instead establish an identity. Use
 `Identity.fireAttemptCompletion` to get the identity and fire the
 `Identity.onAttemptCompletion` callbacks.
 
@@ -262,17 +264,17 @@ Identity.onAttemptCompletion((err, service, method, state, identity) => {
 
 ## General
 
-### `Identity.createWithLoginMethod`
+### `Identity.establishWithLoginMethod`
 
 On client: 
 ```js
-Identity.createWithLoginMethod = (func, callback) => {
-  Meteor.call('Identity.setCreateIdentity', [true], (err) => {
+Identity.establishWithLoginMethod = (func, callback) => {
+  Meteor.call('Identity.setEstablishIdentity', [true], (err) => {
     if (err && callback) return callback.call(err);
     try {
       func();
     } finally {
-      Meteor.call('Identity.setCreateIdentity', [false], (err) => {
+      Meteor.call('Identity.setEstablishIdentity', [false], (err) => {
         if (err && callback) return callback.call(err);
       });
     }    
@@ -280,7 +282,7 @@ Identity.createWithLoginMethod = (func, callback) => {
 }
 
 Identity.fireAttemptCompletion = (err, service, method, state) => {
-  if (err.error === 'Identity.identity-upserted') {
+  if (err.error === 'Identity.identity-established') {
     Meteor.call('Identity.getIdentity', [], (err, identity) => {
       _.forEach(callbacks, (cb) => {
         cb.call(err, service, method, identity, state);
@@ -297,12 +299,12 @@ Identity.fireAttemptCompletion = (err, service, method, state) => {
 On server: 
 ```js
 Meteor.methods({
-  'Identity.setCreateIdentity': (flag) => {
+  'Identity.setEstablishIdentity': (flag) => {
     // Set a flag on the current connection that we can check from our
     // `Accounts.validateNewUser` and `Accounts.validateLoginAttempt` callbacks.
     // When it is set, those callbacks will upsert the user's identity,
     // associate it with the current connection and return
-    // Meteor.Error('Identity.identity-upserted')
+    // Meteor.Error('Identity.identity-established')
   },
   'Identity.getIdentity': () => {
     // Return the identity set on the current connection by our
@@ -317,7 +319,7 @@ Meteor.methods({
 Identity.registerService({
   name: 'password',
   create: (service, options, state) => {
-    Identity.createWithLoginMethod(() => {
+    Identity.establishWithLoginMethod(() => {
       options = _.pick(options, 'user', 'username', 'email', 'password');
       Accounts.createUser(options, (err) => {
         Identity.fireAttemptCompletion(err, 'password', 'create', state);
@@ -325,7 +327,7 @@ Identity.registerService({
     });
   },
   authenticate: (service, options, state) => {
-    Identity.createWithLoginMethod(() => {
+    Identity.establishWithLoginMethod(() => {
       var user = options.user || options.username || options.email;
       Meteor.loginWithPassword(user, password, (err) => {
         Identity.fireAttemptCompletion(err, 'password', 'authenticate', state);
@@ -361,13 +363,13 @@ identity.
 Add a `Meteor.validateLoginAttempt` handler that checks whether the connection's
 'create identity' flag is set and, if it is, upserts a document into the
 `Identity.identities` collection corresponding to the service property used to
-login, associates the identity with the current connection, and throws a `Meteor.Error('identity-upserted')` error. 
+login, associates the identity with the current connection, and throws a `Meteor.Error('identity-established')` error. 
 
 Add a `Meteor.validateNewUser` handler that checks whether the connection's
 'create identity' flag is set and the user document has a `services` property
 and, if it so, upserts a document into the `Identity.identities` collection
 corresponding to the first (and typically only) service, associates the identity
-with the current connection, and throws a `Meteor.Error('identity-upserted')`
+with the current connection, and throws a `Meteor.Error('identity-established')`
 error. 
 
 ### Miscellaneous
