@@ -200,15 +200,15 @@ can create subtle security vulnerabilities. For example:
 
 ```
 this.setUserId(idOfAccountA);
-Accounts.addAlias(idOfAccountB);
+Accounts.addIdentity(identityB);
 ```
 
-This would let user B login to user A's account, even though the current user
-has not given permission for this to occur. This is most often seen in attempts
-to merge users based solely on email address. But when user A created his
-account, he specified what service he wanted to use for authentication. Allowing
-access by an attacker who manages to authenticate with a different service that
-provides the same email address is a betrayal of the user's trust.
+This would let the user with identity B login to user A's account, even though
+user A has not given permission for this to occur. This is most often seen in
+attempts to merge users based solely on email address. But when user A created
+his account, he specified what service he wanted to use for authentication.
+Allowing access by an attacker who manages to authenticate with a different
+service that provides the same email address is a betrayal of the user's trust.
 
 Passing `true` for `overrideLogin` indicates that you understand the risks and
 still want to change to another user.
@@ -264,22 +264,134 @@ Identity.onAttemptCompletion((err, service, method, state, identity) => {
 
 ## General
 
-### `Identity.establishWithLoginMethod`
+### `Identity.establishWithLoginMethod` by monkey patching
+
+The advantage to using monkey patching is that it restricts what is run while in
+"establishing" mode. Async code can't intervene and run in establishing mode by
+accident. I now think this is not a real concern and that there is a simpler
+way.
 
 On client: 
 ```js
-Identity.establishWithLoginMethod = (func, callback) => {
-  Meteor.call('Identity.setEstablishIdentity', [true], (err) => {
-    if (err && callback) return callback.call(err);
-    try {
-      func();
-    } finally {
-      Meteor.call('Identity.setEstablishIdentity', [false], (err) => {
-        if (err && callback) return callback.call(err);
-      });
-    }    
-  });
+Identity.establishWithLoginMethod = (func) => {
+  Identity._isEstablishing = true;
+  try {
+    return func.call();
+  } finally {
+    Identity._isEstablishing = false;    
+  }
 }
+
+// Monkey patch Accounts.callLoginMethod to pass _isEstablishing to the server.
+// This is sufficient to allow us to wrap Meteor.loginWithPassword().
+Accounts.callLoginMethod =
+  _.wrap(Accounts.callLoginMethod, function (origFunc) {
+    var args = _.rest(arguments);
+    // If we aren't establishing an identity, just make the call normally
+    if (! Identity._isEstablishing) {
+      return origFunc.apply(Accounts, args);
+    }
+    // Otherwise, wrap the call with calls to set the establishing state on
+    // the server.
+    Meteor.call('Identity._setEstablishing', [true], handleError);
+    try {
+      return origFunc.apply(Accounts, args);
+    } finally {
+      Meteor.call('Identity._setEstablishing', [false], handleError);
+    });
+    function handleError(err) {
+      if (err) throw err;
+    }
+  });
+
+// Monkey patch Accounts.oauth.credentialRequestCompleteHandler to return a
+// handler wrapped in establishWithLoginMethod if it is called while
+// _isEstablishing is true.
+// This handles the pop-up oauth case.
+Accounts.oauth.credentialRequestCompleteHandler =
+  _.wrap(Accounts.oauth.credentialRequestCompleteHandler, function (origFunc) {
+    // Get the handler returned by the original function
+    var origHandler = origFunc.apply(Accounts.oauth, _.rest(arguments));
+    // If we aren't establishing an identity, just return it
+    if (! Identity._isEstablishing) {
+      return origHandler;
+    }
+    // Otherwise, return a version that runs within
+    // Identity.establishWithLoginMethod
+    return (credentialTokenOrError) => {
+      Identity.establishWithLoginMethod( () => {
+        return origHander.call(credentialTokenOrError);      
+      });
+    }
+  });
+
+// Save our isEstablishing and state before redirecting.
+Reload._onMigrate('identity', function () {
+  return [true, {
+    isEstablishing: Identity._isEstablishing,
+    state: Identity._getState()
+  }];
+});
+
+// Monkey patch OAuth.getDataAfterRedirect to return null if we are 
+// establishing. This will disable the normal post-redirect accounts-oauth flow.
+// First, hold on to the original function. We'll need it in a moment.
+Identity._origGetDataAfterRedirect = OAuth.getDataAfterRedirect;
+OAuth.getDataAfterRedirect =
+  _.wrap(OAuth.getDataAfterRedirect, function (origFunc) {
+    var migrationData = Reload._migrationData('identity');
+    if (migrationData && migrationData.isEstablishing) {
+      return null;
+    }
+    return origFunc.apply(OAuth, _.rest(arguments));    
+  });
+
+// If we detect that we are establishing, restore the state, and do what the
+// account-oauth startup method would have done, but wrapped with
+// establishWithLoginMethod()
+Meteor.startup(() => {
+  var migrationData = Reload._migrationData('identity');
+  if (migrationData && migrationData.isEstablishing) {
+    Identity._isEstablishing = migrationData.isEstablishing;
+    Identity._setState(migrationData.state);
+  }
+  if (! Identity._isEstablishing) {
+    return;
+  }
+  oauth = Identity._origGetDataAfterRedirect.call(OAuth);    
+  if (! oauth)
+    return null;
+  Identity.establishWithLoginMethod(() => {
+    // We'll only have the credentialSecret if the login completed
+    // successfully.  However we still call the login method anyway to
+    // retrieve the error if the login was unsuccessful.
+
+    var methodName = 'login';
+    var methodArguments = [{oauth: _.pick(oauth, 'credentialToken', 'credentialSecret')}];
+
+    Accounts.callLoginMethod({
+      methodArguments: methodArguments,
+      userCallback: function (err) {
+        // The redirect login flow is complete.  Construct an
+        // `attemptInfo` object with the login result, and report back
+        // to the code which initiated the login attempt
+        // (e.g. accounts-ui, when that package is being used).
+        err = convertError(err);
+        // TODO: Get the identityService and identityServiceMethod
+        Identity.fireAttemptCompletion(err, identityService, 
+          identityServiceMethod,
+          Identity._getState());
+        Accounts._pageLoadLogin({
+          type: oauth.loginService,
+          allowed: !err,
+          error: err,
+          methodName: methodName,
+          methodArguments: methodArguments
+        });
+      }
+    });
+  });
+});
 
 Identity.fireAttemptCompletion = (err, service, method, state) => {
   if (err.error === 'Identity.identity-established') {
@@ -299,7 +411,7 @@ Identity.fireAttemptCompletion = (err, service, method, state) => {
 On server: 
 ```js
 Meteor.methods({
-  'Identity.setEstablishIdentity': (flag) => {
+  'Identity._setEstablishing': (flag) => {
     // Set a flag on the current connection that we can check from our
     // `Accounts.validateNewUser` and `Accounts.validateLoginAttempt` callbacks.
     // When it is set, those callbacks will upsert the user's identity,
@@ -319,18 +431,18 @@ Meteor.methods({
 Identity.registerService({
   name: 'password',
   create: (service, options, state) => {
+    options = _.pick(options, 'user', 'username', 'email', 'password');
     Identity.establishWithLoginMethod(() => {
-      options = _.pick(options, 'user', 'username', 'email', 'password');
       Accounts.createUser(options, (err) => {
-        Identity.fireAttemptCompletion(err, 'password', 'create', state);
+        Identity.fireAttemptCompletion(err, service, 'create', state);
       });
     });
   },
   authenticate: (service, options, state) => {
+    var user = options.user || options.username || options.email;
     Identity.establishWithLoginMethod(() => {
-      var user = options.user || options.username || options.email;
       Meteor.loginWithPassword(user, password, (err) => {
-        Identity.fireAttemptCompletion(err, 'password', 'authenticate', state);
+        Identity.fireAttemptCompletion(err, service, 'authenticate', state);
       });
     });
   }
@@ -339,7 +451,19 @@ Identity.registerService({
 
 ### OAuth-based identity services
 
-TODO
+```js
+var service = 'google';
+Identity.registerService({
+  name: service,
+  authenticate: (service, options, state) => {
+    Identity.establishWithOauthLoginMethod(() => {
+      Meteor.loginWithGoogle(options, (err) => {
+        Identity.fireAttemptCompletion(err, service, 'authenticate', state);
+      });
+    });
+  }
+});
+```
 
 ### Server-side stuff
 
@@ -442,6 +566,11 @@ login error because such an error is passed to the server-side
 those errors, the identity tokens would end up in the logs. Instead, attach the
 identity tokens to the connection and have the client make a separate
 server-method call to retrieve the tokens when it sees the error.
+
+Attaching the identity tokens to the connection is insecure if an attacker can
+take over a connection. Can he? Does he just need to disconnect the victim,
+guess a DDP session number, and reconnect using that number? Or is the
+connection object recreated on a reconnect?
 
 # Other Ideas
 
