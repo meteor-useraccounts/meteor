@@ -30,25 +30,25 @@ so that identity services can use namespaced options as needed.
 ## Client-side API for app developers
 
 
-### `Identity.create(service, options, [optionalStateString])`
+### `Identity.create(serviceName, options, [stateString])`
 
 Ask the specified service to create an identity. Returns `false`, if the service
 does not support creating identities. Otherwise returns `true` and initiates an
 attempt to create an identity.
 
-When the attempt completes, the `optionalStateString` is passed to the callbacks
-registered with `Identity.onAttemptCompletion` on what could be a different client
-than the one where `Identity.create` was called, depending on the
-identity service.
+When the attempt completes, the `stateString` is available as `this.state` in
+the callbacks registered with `Identity.onAttemptCompletion` on what could be a
+different client than the one where `Identity.create` was called, depending on
+the identity service.
 
-### `Identity.authenticate(service, options, [optionalStateString])`
+### `Identity.authenticate(serviceName, options, [stateString])`
 
 Ask the specified identity service to attempt to determine the user's identity.
 
-When the attempt concludes, the `optionalStateString` is passed to the callbacks
-registered with `Identity.onAttemptCompletion` on what could be a different client
-than the one where `Identity.authenticate` was called, depending on the identity
-service.
+When the attempt completes, the `stateString` is available as `this.state` in
+the callbacks registered with `Identity.onAttemptCompletion` on what could be a
+different client than the one where `Identity.authenticate` was called,
+depending on the identity service.
 
 ### `Identity.onAttemptCompletion(callback)`
 
@@ -61,37 +61,39 @@ contain an `Error` if the user cancels the attempt, fails in an authentication
 attempt, or attempts to create an identity that would conflict with an identity
 associated with an existing account.
 
-* the service that is reporting the outcome
-
-* the name of the method that was called on the initiating client (either
-`createIdentity`, or `authenticate`). 
-
-* the `optionalStateString` passed to the method that initiated the attempt. The
-`optionalStateString` can be used to migrate the user's state to the
-(potentially) different client.
-
 * the new identity, if the attempt was successful
+
+Within the callback `this` will have the following properties
+
+* `state` - the `stateString` passed to the method that initiated the
+attempt. The `stateString` can be used to migrate the user's state to
+the (potentially) different client.
+
+* `serviceName` - the name of the service that is reporting the outcome
+
+* `methodName` - the name of the method that was called on the initiating client
+(either `create`, or `authenticate`). 
 
 Depending on the identity service, an attempt might never complete. Moreover, if
 it completes the outcome might be reported (by calling the callbacks registered
 with `Identity.onAttemptCompletion`) on a different client than the client that
 initiated the attempt.
 
-### `Accounts.login(identity, [optionalCallback])`
+### `Accounts.login(identity, [callback])`
 
 Log a user into the account associated with the specified identity.
 Throws an exception if:
 
 * an account associated with the identity doesn't exists
 
-### `Accounts.create(identity, options, [optionalCallback])`
+### `Accounts.create(identity, options, [callback])`
 
 Create an account that can be logged into with the specified identity. Throws an
 exception if:
 
 * an account associated with the identity already exists
 
-### `Accounts.addIdentity(identity, [optionalCallback])`
+### `Accounts.addIdentity(identity, [callback])`
 
 Allow login to the current user's account using the specified
 identity.  Throws an exception if
@@ -124,7 +126,7 @@ administrator do so. Also, we must allow a user to remove an identity that he
 can't authenticate as so that he has a way to remove an identity added by an
 attacker or one over which he has lost control.
 
-### `Accounts.removeIdentity(identity, [optionalCallback])`
+### `Accounts.removeIdentity(identity, [callback])`
 
 Deny login to the current user's account using the specified
 identity.  Throws an exception if
@@ -149,22 +151,31 @@ authentication of the user's identity with the identity service.
 as `Identity.create` (including `service`) and initiates creation of
 a new identity with the identity service.
 
-### `Identity.establishWithLoginMethod(func)`
+### `Identity.establishWithLoginMethod(func, arg1, arg2, ..., [callback])`
 
 Call `func` but cause it to establish an identity (create or authenticate)
-whenever it would have created or logged a user into account. While `func` is
-running, any calls to server-side login methods on the default connection that
-would normally cause the creation of an account (i.e. cause the
-`Accounts.validateNewUser` callbacks to run) or a login attempt (i.e.
-`Accounts.validateLoginAttempt` callbacks to run), will not create an account or
-log the user in and will instead establish an identity. Use
-`Identity.fireAttemptCompletion` to get the identity and fire the
-`Identity.onAttemptCompletion` callbacks.
+whenever it would have created or logged a user into an account. The `arg*``
+arguments are passed to `func`, along with a final argument that is a function
+that must be called (with parameters `error` and `result`) if the login method
+initiated by `func` completes in the same javascript virtual machine. That
+function will call `Identity.fireAttemptCompletion` and then call the `callback`
+function (with the same parameters) if one is provided. If the page is reloaded
+due to an oauth redirect flow, `Identity.fireAttemptCompletion` will be called
+at the end of that flow. Between the time that `func` is called and the time
+that `Identity.fireAttemptCompletion` is called, all calls to server-side login
+methods on the default connection that would normally cause the creation of an
+account (i.e. cause the `Accounts.validateNewUser` callbacks to run) or a login
+attempt (i.e. `Accounts.validateLoginAttempt` callbacks to run), will not create
+an account or log the user in and will instead establish an identity.
 
-### `Identity.fireAttemptCompletion(err, service, method, state)`
+### `Identity.fireAttemptCompletion(err, identity, [invocation])`
 
-Retrieves the user's most recent identity and passes it to the
-`Identity.onAttemptCompletion` callbacks along with the other arguments.
+Pass the user's most recent identity to the `Identity.onAttemptCompletion`
+callbacks. If `invocation` is provided, it must be an object with `state`,
+`serviceName`, and `methodName` properties. If `invocation` is not provided, one
+will be constructed using the values passed to the most recent call to
+`Identity.authenticate` or `Identity.create`. Within the callbacks `this` will
+refer to the passed or created `invocation` object.
 
 ## Server-side API
 
@@ -264,147 +275,108 @@ Identity.onAttemptCompletion((err, service, method, state, identity) => {
 
 ## General
 
-### `Identity.establishWithLoginMethod` by monkey patching
+On client:
 
-The advantage to using monkey patching is that it restricts what is run while in
-"establishing" mode. Async code can't intervene and run in establishing mode by
-accident. I now think this is not a real concern and that there is a simpler
-way.
-
-On client: 
 ```js
-Identity.establishWithLoginMethod = (func) => {
-  Identity._isEstablishing = true;
-  try {
-    return func.call();
-  } finally {
-    Identity._isEstablishing = false;    
-  }
+// Create a reactive dict to keep track of the context for the most recent call
+// to Identity.create or Identity.authenticate
+var ctx = new ReactiveDict('identity_ctx');
+var services = {};
+Identity.registerService = function (service) {
+  services[service.serviceName] = service;
 }
 
-// Monkey patch Accounts.callLoginMethod to pass _isEstablishing to the server.
-// This is sufficient to allow us to wrap Meteor.loginWithPassword().
-Accounts.callLoginMethod =
-  _.wrap(Accounts.callLoginMethod, function (origFunc) {
+Identity.create = function (serviceName, options, state) {
+  var service = services[serviceName];
+  if (! service) {
+    throw new Error(`No service named ${serviceName}`);
+  }
+  if (! service.create) {
+    return false;
+  }
+  var invocation = {
+    serviceName: serviceName,
+    methodName: 'create',
+    state: state
+  };
+  ctx.set('invocation', invocation);
+  service.create.call(invocation, options);
+}
+
+Identity.authenticate = function (serviceName, options, state) {
+  var service = services[serviceName];
+  if (! service) {
+    throw new Error(`No service named ${serviceName}`);
+  }
+  var invocation = {
+    serviceName: serviceName,
+    methodName: 'authenticate',
+    state: state
+  };
+  ctx.set('invocation', invocation);
+  service.authenticate.call(invocation, options);
+}
+
+
+ctx.setDefault('isEstablishing', false);
+
+// Whenever the "establishing" state changes on the client, have the server 
+// change the state associated with the connection as well.
+Tracker.autorun(() => { 
+  Meteor.call('Identity._setEstablishing', [ctx.get('isEstablishing')],
+    handleError);
+});
+
+Identity.establishWithLoginMethod = 
+  function (func /*, arg1, ..., [cb]*/) {
     var args = _.rest(arguments);
-    // If we aren't establishing an identity, just make the call normally
-    if (! Identity._isEstablishing) {
-      return origFunc.apply(Accounts, args);
+    var callback;    
+
+    // Enable "establishng"
+    ctx.set('isEstablishing', true);
+
+    // Create/modify the callback to disable "establishing" and run
+    // onAttemptCompletion handlers
+    if (_.isFunction(_.last(args)) {
+      callback = args.pop();
     }
-    // Otherwise, wrap the call with calls to set the establishing state on
-    // the server.
-    Meteor.call('Identity._setEstablishing', [true], handleError);
-    try {
-      return origFunc.apply(Accounts, args);
-    } finally {
-      Meteor.call('Identity._setEstablishing', [false], handleError);
+    callback = _.wrap(callback, function (origCallback, err /*, err, result*/) {
+      Identity._completeEstablishing(err, origCallback);
     });
-    function handleError(err) {
-      if (err) throw err;
-    }
-  });
+    args.push(callback);
 
-// Monkey patch Accounts.oauth.credentialRequestCompleteHandler to return a
-// handler wrapped in establishWithLoginMethod if it is called while
-// _isEstablishing is true.
-// This handles the pop-up oauth case.
-Accounts.oauth.credentialRequestCompleteHandler =
-  _.wrap(Accounts.oauth.credentialRequestCompleteHandler, function (origFunc) {
-    // Get the handler returned by the original function
-    var origHandler = origFunc.apply(Accounts.oauth, _.rest(arguments));
-    // If we aren't establishing an identity, just return it
-    if (! Identity._isEstablishing) {
-      return origHandler;
-    }
-    // Otherwise, return a version that runs within
-    // Identity.establishWithLoginMethod
-    return (credentialTokenOrError) => {
-      Identity.establishWithLoginMethod( () => {
-        return origHander.call(credentialTokenOrError);      
-      });
-    }
-  });
+    // Call the login method
+    return func.apply(Meteor, args);
+};
 
-// Save our isEstablishing and state before redirecting.
-Reload._onMigrate('identity', function () {
-  return [true, {
-    isEstablishing: Identity._isEstablishing,
-    state: Identity._getState()
-  }];
+// The redirect flow of services which use accounts-oauth will pass the 
+// result of the login method to onPageLoadLogin callbacks.
+Accounts.onPageLoadLogin((attemptInfo) => {
+  var ai = attemptInfo;
+  if (ai && ai.error && ai.error.error === 'Identity.identity-established' &&
+      ctx.get('isEstablishing')) {
+    Identity._completeEstablishing(err);
+  }
 });
 
-// Monkey patch OAuth.getDataAfterRedirect to return null if we are 
-// establishing. This will disable the normal post-redirect accounts-oauth flow.
-// First, hold on to the original function. We'll need it in a moment.
-Identity._origGetDataAfterRedirect = OAuth.getDataAfterRedirect;
-OAuth.getDataAfterRedirect =
-  _.wrap(OAuth.getDataAfterRedirect, function (origFunc) {
-    var migrationData = Reload._migrationData('identity');
-    if (migrationData && migrationData.isEstablishing) {
-      return null;
-    }
-    return origFunc.apply(OAuth, _.rest(arguments));    
-  });
-
-// If we detect that we are establishing, restore the state, and do what the
-// account-oauth startup method would have done, but wrapped with
-// establishWithLoginMethod()
-Meteor.startup(() => {
-  var migrationData = Reload._migrationData('identity');
-  if (migrationData && migrationData.isEstablishing) {
-    Identity._isEstablishing = migrationData.isEstablishing;
-    Identity._setState(migrationData.state);
-  }
-  if (! Identity._isEstablishing) {
-    return;
-  }
-  oauth = Identity._origGetDataAfterRedirect.call(OAuth);    
-  if (! oauth)
-    return null;
-  Identity.establishWithLoginMethod(() => {
-    // We'll only have the credentialSecret if the login completed
-    // successfully.  However we still call the login method anyway to
-    // retrieve the error if the login was unsuccessful.
-
-    var methodName = 'login';
-    var methodArguments = [{oauth: _.pick(oauth, 'credentialToken', 'credentialSecret')}];
-
-    Accounts.callLoginMethod({
-      methodArguments: methodArguments,
-      userCallback: function (err) {
-        // The redirect login flow is complete.  Construct an
-        // `attemptInfo` object with the login result, and report back
-        // to the code which initiated the login attempt
-        // (e.g. accounts-ui, when that package is being used).
-        err = convertError(err);
-        // TODO: Get the identityService and identityServiceMethod
-        Identity.fireAttemptCompletion(err, identityService, 
-          identityServiceMethod,
-          Identity._getState());
-        Accounts._pageLoadLogin({
-          type: oauth.loginService,
-          allowed: !err,
-          error: err,
-          methodName: methodName,
-          methodArguments: methodArguments
-        });
-      }
-    });
-  });
-});
-
-Identity.fireAttemptCompletion = (err, service, method, state) => {
+Identity._completeEstablishing = function (err, callback) {
+  ctx.set('isEstablishing', false);
   if (err.error === 'Identity.identity-established') {
     Meteor.call('Identity.getIdentity', [], (err, identity) => {
-      _.forEach(callbacks, (cb) => {
-        cb.call(err, service, method, identity, state);
-      });
+      Identity.fireAttemptCompletion(err, identity);
+      callback.call(ctx.get('invocation'), err, identity);
     });
   } else {
-    _.forEach(callbacks, (cb) => {
-      cb.call(err, service, method, identity, state);
-    });    
+    Identity.fireAttemptCompletion(err);
+    callback.call(ctx.get('invocation'), err);
   }
+};
+
+Identity.fireAttemptCompletion = (err, identity, invocation) => {
+  invocation = invocation || ctx.get('invocation');
+  _.forEach(callbacks, (cb) => {
+    cb.call(invocation, err, identity);
+  });
 }
 ```
 
@@ -432,19 +404,11 @@ Identity.registerService({
   name: 'password',
   create: (service, options, state) => {
     options = _.pick(options, 'user', 'username', 'email', 'password');
-    Identity.establishWithLoginMethod(() => {
-      Accounts.createUser(options, (err) => {
-        Identity.fireAttemptCompletion(err, service, 'create', state);
-      });
-    });
+    Identity.establishWithLoginMethod(Accounts.createUser, options);
   },
   authenticate: (service, options, state) => {
     var user = options.user || options.username || options.email;
-    Identity.establishWithLoginMethod(() => {
-      Meteor.loginWithPassword(user, password, (err) => {
-        Identity.fireAttemptCompletion(err, service, 'authenticate', state);
-      });
-    });
+    Identity.establishWithLoginMethod(Meteor.loginWithPassword, user, password);
   }
 });
 ```
@@ -456,11 +420,7 @@ var service = 'google';
 Identity.registerService({
   name: service,
   authenticate: (service, options, state) => {
-    Identity.establishWithOauthLoginMethod(() => {
-      Meteor.loginWithGoogle(options, (err) => {
-        Identity.fireAttemptCompletion(err, service, 'authenticate', state);
-      });
-    });
+    Identity.establishWithLoginMethod(Meteor.loginWithGoogle, options);
   }
 });
 ```
