@@ -177,18 +177,29 @@ will be constructed using the values passed to the most recent call to
 `Identity.authenticate` or `Identity.create`. Within the callbacks `this` will
 refer to the passed or created `invocation` object.
 
-## Server-side API
+## Server-side API for identity service developers
 
-### `Identity.validateNewIdentity(func)`
+### `Identity.registerService(identityService)`
 
-Set policy controlling whether new identities are added to the database.
-Analogous to `Accounts.validateNewUser`, but for identities instead of accounts.
+Register `identityService` as an identity service. 
 
-### `Identity.validateAuthenticationAttempt(func)`
+`identityService.name` is the name of the identity service.
 
-Set policy controlling whether an identity is returned to the client. Analogous
-to `Accounts.validateLoginAttempt`, but for authenticating as an identity
-instead of logging in to an account.
+`identityService.isValid` is a required function which takes an identity and
+returns true if the identity is valid.
+
+## Server-side API for policy enforcement
+
+### `Identity.validate(func)`
+
+Set policy controlling whether an identity is valid. Analogous to
+`Accounts.validateNewUser` or `Accounts.validateLoginAttempt`, but for
+identities instead of accounts. The initial value of `attemptInfo.allowed` will
+be the value returned by the identity service's `isValid` callback. If that
+value is `false`, `func` can not override it (but can log the failure, for
+example). Otherwise, `func` can set `attemptInfo.allowed = false` if
+`attemptInfo.identity` should be considered invalid. All `func`s registered with
+`Identity.validate` are called whenever an identity is validated.
 
 ### `Accounts.addSignedUpInterceptor(func)`
 
