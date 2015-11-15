@@ -6,6 +6,8 @@ Package.describe({
 Package.onUse(function (api) {
   api.use('underscore', ['client', 'server']);
   api.use('ecmascript', ['client', 'server']);
+  api.use('check', ['client', 'server']);
+  api.use('callback-hook', ['client', 'server']);
 
   api.export('Identity', ['client', 'server']);
 
@@ -19,7 +21,8 @@ Package.onTest(function (api) {
     'identity',
     'tinytest',
     'test-helpers',
-    'underscore'
+    'underscore',
+    'ecmascript'
   ]);
 
   api.addFiles('identity_client_tests.js', 'client');

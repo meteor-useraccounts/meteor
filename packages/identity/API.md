@@ -20,7 +20,8 @@ options = {
     google: googleSpecificOptions,
     password: passwordSpecificOptions,
    ...
-  }
+  },
+  clientState: 'string to pass to onAttemptCompletion() handler'
 }
 ```
 
@@ -30,25 +31,25 @@ so that identity services can use namespaced options as needed.
 ## Client-side API for app developers
 
 
-### `Identity.create(serviceName, options, [stateString])`
+### `Identity.create(serviceName, options)`
 
 Ask the specified service to create an identity. Returns `false`, if the service
 does not support creating identities. Otherwise returns `true` and initiates an
 attempt to create an identity.
 
-When the attempt completes, the `stateString` is available as `this.state` in
-the callbacks registered with `Identity.onAttemptCompletion` on what could be a
-different client than the one where `Identity.create` was called, depending on
-the identity service.
+When the attempt completes, the `options.clientState` is available as
+`invocation.clientState` in the callbacks registered with
+`Identity.onAttemptCompletion` on what could be a different client than the one
+where `Identity.create` was called, depending on the identity service.
 
-### `Identity.authenticate(serviceName, options, [stateString])`
+### `Identity.authenticate(serviceName, options)`
 
 Ask the specified identity service to attempt to determine the user's identity.
 
-When the attempt completes, the `stateString` is available as `this.state` in
-the callbacks registered with `Identity.onAttemptCompletion` on what could be a
-different client than the one where `Identity.authenticate` was called,
-depending on the identity service.
+When the attempt completes, the `options.clientState` is available as
+`invocation.clientState` in the callbacks registered with
+`Identity.onAttemptCompletion` on what could be a different client than the one
+where `Identity.authenticate` was called, depending on the identity service.
 
 ### `Identity.onAttemptCompletion(callback)`
 
@@ -61,19 +62,20 @@ contain an `Error` if the user cancels the attempt, fails in an authentication
 attempt, or attempts to create an identity that would conflict with an identity
 associated with an existing account.
 
-* the new identity, if the attempt was successful
+* a result object, if the attempt was successful, containing the following 
+  properties:
 
-Within the callback `this` will have the following properties
+  * `serviceName` - the name of the service that is reporting the outcome
 
-* `state` - the `stateString` passed to the method that initiated the
-attempt. The `stateString` can be used to migrate the user's state to
-the (potentially) different client.
+  * `methodName` - the name of the method that was called on the initiating
+    client (either `create`, or `authenticate`). 
 
-* `serviceName` - the name of the service that is reporting the outcome
-
-* `methodName` - the name of the method that was called on the initiating client
-(either `create`, or `authenticate`). 
-
+  * `clientState` - the `options.clientState` passed to the method that
+    initiated the attempt. This can be used to migrate the user's state to the
+    (potentially) different client.
+    
+  * `identity` - the identity that was created or authenticated
+  
 Depending on the identity service, an attempt might never complete. Moreover, if
 it completes the outcome might be reported (by calling the callbacks registered
 with `Identity.onAttemptCompletion`) on a different client than the client that
@@ -168,14 +170,15 @@ account (i.e. cause the `Accounts.validateNewUser` callbacks to run) or a login
 attempt (i.e. `Accounts.validateLoginAttempt` callbacks to run), will not create
 an account or log the user in and will instead establish an identity.
 
-### `Identity.fireAttemptCompletion(err, identity, [invocation])`
+### `Identity.fireAttemptCompletion(err, result)`
 
-Pass the user's most recent identity to the `Identity.onAttemptCompletion`
-callbacks. If `invocation` is provided, it must be an object with `state`,
-`serviceName`, and `methodName` properties. If `invocation` is not provided, one
-will be constructed using the values passed to the most recent call to
-`Identity.authenticate` or `Identity.create`. Within the callbacks `this` will
-refer to the passed or created `invocation` object.
+Pass the outcome of an identity creation or authentication attempt to the
+`Identity.onAttemptCompletion` callbacks. If `result` is not `undefined`, it
+must contain at least an `identity` property whose value is the identity that
+was created or authenticated. If it does not contain, `clientState`,
+`serviceName`, and/or `methodName` properties, those  will be constructed using
+the values passed to the most recent call to `Identity.authenticate` or
+`Identity.create`.
 
 ## Server-side API for identity service developers
 
@@ -244,40 +247,51 @@ Identity.authenticate(serviceName, options);
 
 Sign-up with Service X:
 ```js
-var state = "SigningUp";
-if (!Identity.create(serviceName, options, state)) {
-  Identity.authenticate(serviceName, options, state);
+var options = {
+  clientState: "SigningUp"
+  ...
+}
+if (!Identity.create(serviceName, options)) {
+  Identity.authenticate(serviceName, options);
 }
 ```
 
 Add Service X:
 ```js
-var state = "AddingIdentity";
-if (!Identity.create(serviceName, options, state)) {
-  Identity.authenticate(serviceName, options, state);
+var options = {
+  clientState: "AddingIdentity"
+  ...
+}
+if (!Identity.create(serviceName, options)) {
+  Identity.authenticate(serviceName, options);
 }
 ```
 
 Common top-level code:
 ```js
-Identity.onAttemptCompletion((err, service, method, state, identity) => {
-  if (state === 'SigningUp') {
-    Accounts.create(identity);
-    Accounts.login(identity);
-  } else if (state === 'AddingIdentity') {
+Identity.onAttemptCompletion((err, result) => {
+  if (err) {
+    throw err; // Or otherwise handle it.
+  }
+  if (result.clientState === 'SigningUp') {
+    Accounts.create(result.identity, accountOptions);
+    Accounts.login(result.identity);
+  } else if (result.clientState === 'AddingIdentity') {
     if (Meteor.userId()) {
       // Require user confirmation to prevent an attacker from adding his
       // identity to a victim's account by getting a logged in victim to follow
       // a link which an identity service uses to authenticate the link-follower
       // as the attacker.
-      if (window.confirm(`Allow ${identity} to sign-in to your account?`)) {
-        Accounts.addIdentity(identity);        
+      if (window.confirm(
+          `Allow ${result.identity} to sign-in to your account?`)) {
+        Accounts.addIdentity(result.identity);        
       }
     } else {
-      window.alert(`You must be signed in to add ${identity} to your account`);
+      window.alert(
+        `You must be signed in to add ${result.identity} to your account`);
     }
   } else {
-    Accounts.login(identity);    
+    Accounts.login(result.identity);    
   }
 });
 ```
@@ -297,7 +311,7 @@ Identity.registerService = function (service) {
   services[service.serviceName] = service;
 }
 
-Identity.create = function (serviceName, options, state) {
+Identity.create = function (serviceName, options) {
   var service = services[serviceName];
   if (! service) {
     throw new Error(`No service named ${serviceName}`);
@@ -308,13 +322,13 @@ Identity.create = function (serviceName, options, state) {
   var invocation = {
     serviceName: serviceName,
     methodName: 'create',
-    state: state
+    clientState: options.clientState
   };
   ctx.set('invocation', invocation);
-  service.create.call(invocation, options);
+  service.create.call(undefined, serviceName, options);
 }
 
-Identity.authenticate = function (serviceName, options, state) {
+Identity.authenticate = function (serviceName, options) {
   var service = services[serviceName];
   if (! service) {
     throw new Error(`No service named ${serviceName}`);
@@ -322,10 +336,10 @@ Identity.authenticate = function (serviceName, options, state) {
   var invocation = {
     serviceName: serviceName,
     methodName: 'authenticate',
-    state: state
+    clientState: options.clientState
   };
   ctx.set('invocation', invocation);
-  service.authenticate.call(invocation, options);
+  service.authenticate.call(undefined, serviceName, options);
 }
 
 
@@ -351,7 +365,11 @@ Identity.establishWithLoginMethod =
     if (_.isFunction(_.last(args)) {
       callback = args.pop();
     }
-    callback = _.wrap(callback, function (origCallback, err /*, err, result*/) {
+    callback = _.wrap(callback, function (origCallback, err /*, result*/) {
+      if (! err) {
+        // This should never happen.
+        throw new Error(`${func.name} failed to return an error`);
+      }
       Identity._completeEstablishing(err, origCallback);
     });
     args.push(callback);
@@ -374,19 +392,22 @@ Identity._completeEstablishing = function (err, callback) {
   ctx.set('isEstablishing', false);
   if (err.error === 'Identity.identity-established') {
     Meteor.call('Identity.getIdentity', [], (err, identity) => {
-      Identity.fireAttemptCompletion(err, identity);
-      callback.call(ctx.get('invocation'), err, identity);
+      var result = ctx.get('invocation');
+      result.identity = identity;
+      Identity.fireAttemptCompletion(undefined, result);
+      callback && callback.call(undefined, undefined, result);
     });
   } else {
     Identity.fireAttemptCompletion(err);
-    callback.call(ctx.get('invocation'), err);
+    callback && callback.call(undefined, err);
   }
 };
 
-Identity.fireAttemptCompletion = (err, identity, invocation) => {
-  invocation = invocation || ctx.get('invocation');
+Identity.fireAttemptCompletion = (err, result) => {
+  var invocation = ctx.get('invocation');
+  result = _.defaults(_.clone(result), invocation);
   _.forEach(callbacks, (cb) => {
-    cb.call(invocation, err, identity);
+    cb.call(undefined, err, result);
   });
 }
 ```
@@ -413,11 +434,11 @@ Meteor.methods({
 ```js
 Identity.registerService({
   name: 'password',
-  create: (service, options, state) => {
+  create: (service, options) => {
     options = _.pick(options, 'user', 'username', 'email', 'password');
     Identity.establishWithLoginMethod(Accounts.createUser, options);
   },
-  authenticate: (service, options, state) => {
+  authenticate: (service, options) => {
     var user = options.user || options.username || options.email;
     Identity.establishWithLoginMethod(Meteor.loginWithPassword, user, password);
   }
@@ -427,10 +448,9 @@ Identity.registerService({
 ### OAuth-based identity services
 
 ```js
-var service = 'google';
 Identity.registerService({
-  name: service,
-  authenticate: (service, options, state) => {
+  name: 'google',
+  authenticate: (service, options) => {
     Identity.establishWithLoginMethod(Meteor.loginWithGoogle, options);
   }
 });
