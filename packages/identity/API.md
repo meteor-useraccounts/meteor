@@ -191,6 +191,14 @@ Register `identityService` as an identity service.
 `identityService.isValid` is a required function which takes an identity and
 returns true if the identity is valid.
 
+### `Identity.isClientStateValid(clientState)`
+
+Returns `false` if any `func` registered with
+`Identity.validateClientState(func)` returns a falsey value. Otherwise, returns
+`true`. An identity service should use this function to check the validity of
+client state before storing it on the server or passing it to another client
+(e.g. in an email). See `Identity.validateClientState` for more info.
+
 ## Server-side API for policy enforcement
 
 ### `Identity.validate(func)`
@@ -203,6 +211,19 @@ value is `false`, `func` can not override it (but can log the failure, for
 example). Otherwise, `func` can set `attemptInfo.allowed = false` if
 `attemptInfo.identity` should be considered invalid. All `func`s registered with
 `Identity.validate` are called whenever an identity is validated.
+
+### `Identity.validateClientState(func)`
+
+Set policy controlling what values are considered valid by
+`Identity.isClientStateValid(clientState)`. This allows a consistent policy to
+be enforced across multiple identity services that need to store client state
+and/or pass it to other clients. The policy can be used to prevent an attacker
+from exploiting client state to use the app to store or transfer his own data.
+
+When `Identity.isClientStateValid(clientState)` is called, `clientState` is
+passed to all `func`s registered with `Identity.validateClientState(func)`. If
+any `func` returns a falsey value, `Identity.isClientStateValid` will return
+`false`. Otherwise it will return `true.`
 
 ### `Accounts.addSignedUpInterceptor(func)`
 
