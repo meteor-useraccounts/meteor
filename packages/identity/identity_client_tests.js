@@ -5,7 +5,7 @@ class StubIdentityServiceProvider {
     this.name = name;
     this.valToReturn = { returnedBy: name };
     this.resultOnCompletion = { identity: { serviceName: name } };
-    this.errorOnCompletion = new Error(`errorFrom ${name}`);
+    this.errorOnCompletion = undefined;
     this.authenticateCalls = [];
     this.service = {
       name: name,
@@ -71,7 +71,16 @@ Tinytest.add("identity - delegation to service with create", (test) => {
       methodName: 'create',
       clientState: options.clientState
     }
-  }], 'create fires onAttemptCompletion handler called');
+  }], 'create causes onAttemptCompletion handler to be called');
+  prov.onCompletionCalls = [];
+  test.throws(() => {
+    Identity.fireAttemptCompletion(undefined, { 
+      identity: { serviceName: prov.name } 
+    });
+  });
+  test.equal(prov.onCompletionCalls, [], 
+    'only first call to fireAttemptCompletion should work w/o context');
+  
   prov.createCalls = [];
   prov.authenticateCalls = [];
   prov.onCompletionCalls = [];
@@ -86,7 +95,16 @@ Tinytest.add("identity - delegation to service with create", (test) => {
       methodName: 'authenticate',
       clientState: options.clientState
     }
-  }], 'auth fires onAttemptCompletion handler called');
+  }], 'auth causes onAttemptCompletion handler to be called');
+
+  prov.onCompletionCalls = [];
+  test.throws(() => {
+    Identity.fireAttemptCompletion(undefined, { 
+      identity: { serviceName: prov.name } 
+    });
+  });
+  test.equal(prov.onCompletionCalls, [], 
+    'only first call to fireAttemptCompletion should work w/o context');
 });
 
 Tinytest.add("identity - delegation to service without create", (test) => {
@@ -105,94 +123,39 @@ Tinytest.add("identity - delegation to service without create", (test) => {
   test.equal(prov.authenticateCalls, [options], 'auth called');
 });
 
-
-// The FakeLoginService just creates users that record the arguments passed to
-// createWithFakeLoginService. Then a call to loginWithFakeLoginService with the
-// same arguments will return that user.
-function createWithFakeLoginService(param1, param2, callback) {
-  Accounts.callLoginMethod({
-    methodName: 'Identity.test.createWithFakeLoginService',
-    methodArguments: [param1, param2],
-    userCallback: callback
+Tinytest.add("identity - fireAttemptCompletion without _ctx", (test) => {
+  let attemptCompletionCalls = [];
+  let stopper = Identity.onAttemptCompletion((...args) => {
+    attemptCompletionCalls.push(args);
   });
-}
-function loginWithFakeLoginService(param1, param2, callback) {
-  Accounts.callLoginMethod({
-    methodArguments: [{ identityFakeLoginService: [param1, param2] } ],
-    userCallback: callback
-  });
-}
 
-
-Tinytest.addAsync("identity - FakeLoginService", (test, done) => {
-  // Test that FakeLoginService can be trusted to work correctly in other tests.
-  Identity._isEstablishing = false;
-  let args = [Random.id(), Random.id()];
-  let userId;
-  Meteor.logout((err) => {
-    test.isUndefined(err, `Error during logout: ${err}`);
-    createWithFakeLoginService(args[0], args[1], (err) => {
-      test.isUndefined(err, `Error during createWithFakeLoginService: ${err}`);
-      userId = Meteor.userId();
-      test.isNotNull(userId, 'Not logged in by createWithFakeLoginService');
-      Meteor.logout((err) => {
-        test.isUndefined(err, `Error during logout: ${err}`);
-        test.isNull(Meteor.userId(), 'Not logged out');        
-        loginWithFakeLoginService(args[0], args[1], (err) => {
-          test.isUndefined(err, 
-            `Error during loginWithFakeLoginService: ${err}`);
-          test.isNotNull(Meteor.userId(), 
-            'Not logged in by loginWithFakeLoginService');
-          test.equal(Meteor.userId(), userId);
-          done();
-        });
-      });
-    });
-  });
-});
-
-Tinytest.addAsync("identity - establishWithLoginMethod", (test, done) => {
-  // Test creating and using identities via the FakeLoginService
-  Identity._isEstablishing = false;
-  let args = [Random.id(), Random.id()];
-  createWithEstablish();
-  function createWithEstablish() {
-    Identity.establishWithLoginMethod(createWithFakeLoginService, args[0], args[1], 
-      verifyCreated);
-  }
-  function verifyCreated(err, result) {
-    test.isUndefined(err, `Error during establishWithLoginMethod: ${err}`);
-    test.equal(result.identity.serviceName, 'loginMethod');
-    Meteor.call('Identity.test.getVerifiedIdentityRecord', result.identity, 
-      (err, result) => {
-        test.isUndefined(err, 'Error verifying identity: ${err}');
-        test.equal(result.services.identityFakeLoginService.args, args, 'args');
-        verifyLoginFails();
-    });    
-  }
-  function verifyLoginFails() {
-    loginWithFakeLoginService(args[0], args[1], (err, result) => {
-      test.instanceOf(err, Meteor.Error, 'expected an error');
-      // Should react as though the user doesn't exist so that an attacker
-      // can't fish for users by checking error messages.
-      test.equal(err.error, 403);
-      test.equal(err.reason, "User not found");      
-      authenticateWithEstablish();
-    });
-  }
-  function authenticateWithEstablish() {
-    Identity.establishWithLoginMethod(loginWithFakeLoginService, args[0], args[1], 
-      verifyAuthenticated);    
-  }
+  let expectedResult = {
+    methodName: 'create',
+    identity: {
+      serviceName: 'dummyServiceName'
+    }
+  };
+  attemptCompletionCalls = [];
+  Identity.fireAttemptCompletion(undefined, expectedResult);
+  test.equal(attemptCompletionCalls, [[undefined, expectedResult]], 
+    'with all props present');
   
-  function verifyAuthenticated(err, result) {
-    test.isUndefined(err, `Error during establishWithLoginMethod: ${err}`);
-    test.equal(result.identity.serviceName, 'loginMethod');
-    Meteor.call('Identity.test.getVerifiedIdentityRecord', result.identity, 
-      (err, result) => {
-        test.isUndefined(err, 'Error verifying identity: ${err}');
-        test.equal(result.services.identityFakeLoginService.args, args, 'args');
-        done();
-    });    
-  }
+  attemptCompletionCalls = [];
+  test.throws(() => {
+    Identity.fireAttemptCompletion(undefined, {
+      identity: {
+        serviceName: 'dummyServiceName'
+      }
+    });
+  });
+  test.throws(() => {
+    Identity.fireAttemptCompletion(undefined, {
+      methodName: 'create',
+      identity: {
+      }
+    });
+  });
+  test.equal(attemptCompletionCalls, [], 'not called if missing props');
+
+  stopper.stop();
 });

@@ -15,6 +15,15 @@ IdentityCommonImpl = class IdentityCommonImpl {
     }
     this._services[service.name] = service;
   }
+  
+  _getServiceByName(serviceName) {
+    check(serviceName, String);
+    let svc = this._services[serviceName];
+    if (! svc) {
+      throw new Error(this.SERVICE_NOT_FOUND, serviceName);
+    }
+    return svc;
+  }
     
   // Error messages
   get SERVICE_ALREADY_REGISTERED() { 
@@ -23,9 +32,6 @@ IdentityCommonImpl = class IdentityCommonImpl {
   get SERVICE_NOT_FOUND() {
     return 'identity-service-not-found';
   }
-  get IDENTITY_ESTABLISHED() {
-    return 'identity-established';
-  }  
   get VERIFICATION_FAILED() {
     return 'verification-failed';
   }  

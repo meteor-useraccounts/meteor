@@ -10,8 +10,6 @@ Package.onUse(function (api) {
   api.use('callback-hook', ['client', 'server']);
   api.use('reactive-dict', ['client', 'server']);
   api.use('tracker', ['client', 'server']);
-  api.use('accounts-base', ['client', 'server'], { weak: true });
-  api.use('ddp', ['server'], { weak: true });
 
   api.export('Identity', ['client', 'server']);
 
