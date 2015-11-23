@@ -131,8 +131,7 @@ class IdentityImpl extends IdentityCommonImpl {
     return svc;
   }
   
-  establishWithLoginMethod(loginMethod /*, [arg0], ..., [callback] */) {
-    let args = _.rest(arguments);
+  establishWithLoginMethod(loginMethod, ...args) {
     let callback;
 
     // Enable "establishng"

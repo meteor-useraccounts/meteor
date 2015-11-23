@@ -41,7 +41,7 @@ class IdentityServerImpl extends IdentityCommonImpl {
 
       user._identity = {
         // TODO: Add tokens, etc. to user for verification        
-      }
+      };
       var userId;
       try {
         userId = Accounts.users.insert(user);
