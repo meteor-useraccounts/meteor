@@ -65,8 +65,6 @@ associated with an existing account.
 * a result object, if the attempt was successful, containing the following 
   properties:
 
-  * `serviceName` - the name of the service that is reporting the outcome
-
   * `methodName` - the name of the method that was called on the initiating
     client (either `create`, or `authenticate`). 
 
@@ -74,7 +72,9 @@ associated with an existing account.
     initiated the attempt. This can be used to migrate the user's state to the
     (potentially) different client.
     
-  * `identity` - the identity that was created or authenticated
+  * `identity` - the identity that was created or authenticated.
+    `identity.serviceName` contains the name of the service that issued the
+    identity.
   
 Depending on the identity service, an attempt might never complete. Moreover, if
 it completes the outcome might be reported (by calling the callbacks registered
@@ -167,18 +167,19 @@ at the end of that flow. Between the time that `func` is called and the time
 that `Identity.fireAttemptCompletion` is called, all calls to server-side login
 methods on the default connection that would normally cause the creation of an
 account (i.e. cause the `Accounts.validateNewUser` callbacks to run) or a login
-attempt (i.e. `Accounts.validateLoginAttempt` callbacks to run), will not create
-an account or log the user in and will instead establish an identity.
+attempt (i.e. `Accounts.validateLoginAttempt` callbacks to run), will neither
+log the user in nor create an account that can be logged into, and will instead
+establish an identity.
 
 ### `Identity.fireAttemptCompletion(err, result)`
 
 Pass the outcome of an identity creation or authentication attempt to the
 `Identity.onAttemptCompletion` callbacks. If `result` is not `undefined`, it
 must contain at least an `identity` property whose value is the identity that
-was created or authenticated. If it does not contain, `clientState`,
-`serviceName`, and/or `methodName` properties, those  will be constructed using
-the values passed to the most recent call to `Identity.authenticate` or
-`Identity.create`.
+was created or authenticated. If it does not contain `clientState`,
+`identity.serviceName`, and/or `methodName` properties, those  will be
+constructed using the values passed to the most recent call to
+`Identity.authenticate` or `Identity.create`.
 
 ## Server-side API for identity service developers
 
@@ -188,8 +189,21 @@ Register `identityService` as an identity service.
 
 `identityService.name` is the name of the identity service.
 
-`identityService.isValid` is a required function which takes an identity and
-returns true if the identity is valid.
+`identityService.verify` is a function which takes an identity, verifies that it
+represents the end user that it claims to, and returns an identifier
+corresponding to that end user. The returned identifier is unique within the
+service and never reassigned to a different end user. If the identity can not be
+verified, this function should `throw new
+Error('identity-verification-failed')`.
+
+### `Identity.verifyIdentityFromLoginMethod(identity)`
+
+Verifies that `identity` was issued during a call to
+`Identity.establishWithLoginMethod()` and represents the end user that it claims
+to, and returns an identifier corresponding to that end user. The returned
+identifier is unique within the service and never reassigned to a different end
+user. If the identity can not be verified, this function will `throw new
+Error('identity-verification-failed')`.
 
 ### `Identity.isClientStateValid(clientState)`
 
@@ -201,16 +215,30 @@ client state before storing it on the server or passing it to another client
 
 ## Server-side API for policy enforcement
 
-### `Identity.validate(func)`
+### `Identity.validateVerificationAttempt(func)`
 
-Set policy controlling whether an identity is valid. Analogous to
-`Accounts.validateNewUser` or `Accounts.validateLoginAttempt`, but for
-identities instead of accounts. The initial value of `attemptInfo.allowed` will
-be the value returned by the identity service's `isValid` callback. If that
-value is `false`, `func` can not override it (but can log the failure, for
-example). Otherwise, `func` can set `attemptInfo.allowed = false` if
-`attemptInfo.identity` should be considered invalid. All `func`s registered with
-`Identity.validate` are called whenever an identity is validated.
+Set policy controlling whether a verified identity can be used. Analogous to
+`Accounts.validateLoginAttempt`, but for identities instead of accounts. If the
+identity service's `verify` function returned an end user identifier, that will
+it will be in `attemptInfo.subjectId` and the initial value of
+`attemptInfo.allowed` will be `true`. If the identity service's `verify`
+function throws an error, `attemptInfo.subjectId` will be `undefined`, the
+initial value of `attemptInfo.allowed` will be `false` and the initial value of
+`attemptInfo.error` will be the error. If `attemptInfo.allowed` is `false`,
+`func` can not override it (but can log the failure, for example). Otherwise,
+`func` can set `attemptInfo.allowed = false` if `attemptInfo.identity` should
+not be used. All `func`s registered with `Identity.validateVerificationAttempt`
+are called whenever an identity is verified.
+
+### `Identity.verify(identity)`
+
+Call the `verify` function for `identity.serviceName` and then the functions
+registered with `Identity.validateVerificationAttempt`. If `identity` is
+verified and the verification attempt is deemed valid, returns an identifier
+corresponding to the end user represented by the identity. The returned
+identifier is unique within the service and never reassigned to a different end
+user. If `identity` can not be verified or the verification attempt is deemed
+invalid, throws `new Error('invalid-identity')`.
 
 ### `Identity.validateClientState(func)`
 
@@ -462,7 +490,8 @@ Identity.registerService({
   authenticate: (service, options) => {
     var user = options.user || options.username || options.email;
     Identity.establishWithLoginMethod(Meteor.loginWithPassword, user, password);
-  }
+  },
+  isValid: Identity.isIdentityFromLoginMethodValid
 });
 ```
 
@@ -473,40 +502,34 @@ Identity.registerService({
   name: 'google',
   authenticate: (service, options) => {
     Identity.establishWithLoginMethod(Meteor.loginWithGoogle, options);
-  }
+  },
+  isValid: Identity.isIdentityFromLoginMethodValid  
 });
 ```
 
 ### Server-side stuff
 
-Create a new `Identity.identities` collection. Each document in the collection
-will look like:
+Add a `Meteor.validateNewUser` handler that checks whether an
+`Identity.establishWithLoginMethod()` is in progress (by checking the
+connection's 'is establishing' flag), and if so, inserts the user document into
+the `Meteor.users` collection, with `user.isIdentity = true`, associates the
+identity with the current connection, and throws a
+`Meteor.Error('identity-established')` error. This allows the login service to
+find the identities it creates. Th`validateNewUser` handler should be registered
+at the top-level to minimize the chances that another `validateNewUser` handler
+will deny the creation of a new user first and prevent it from running.
 
-```js
-{
-  serviceName: 'google',
-  serviceCredentials: { ... }, // same as `services.google` in user document
-  identityCredentials: { ... }, // similar to `services.resume` in user doc
-  accountId: 'WEavsd123' // undefined or ID of account the identity can login to
-}
-```
+Add a `Meteor.validateLoginAttempt` handler that denies attempts to login to
+accounts with `user.isIdentity === true`. Instead, it associates the
+identity with the current connection, and throws a
+`Meteor.Error('identity-established')` error.
 
-The `identityCredentials` are used to create identity tokens in the same way
-that the `resume` service creates login tokens. If a user's client has a valid
-identity token then the user has been authenticated as the corresponding
-identity.
-
-Add a `Meteor.validateLoginAttempt` handler that checks whether the connection's
-'create identity' flag is set and, if it is, upserts a document into the
-`Identity.identities` collection corresponding to the service property used to
-login, associates the identity with the current connection, and throws a `Meteor.Error('identity-established')` error. 
-
-Add a `Meteor.validateNewUser` handler that checks whether the connection's
-'create identity' flag is set and the user document has a `services` property
-and, if it so, upserts a document into the `Identity.identities` collection
-corresponding to the first (and typically only) service, associates the identity
-with the current connection, and throws a `Meteor.Error('identity-established')`
-error. 
+Identity services are responsible for managing any server-side resources
+necessary to create/authenticate identities. Some identity services (e.g. one
+considers a user's public key to be his identity), might not need to store any
+identity information on the server. Others might maintain their own
+collection(s) and issue identity tokens in the same way that the `resume`
+service creates login tokens.
 
 ### Miscellaneous
 

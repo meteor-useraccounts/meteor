@@ -29,7 +29,7 @@ class StubIdentityServiceProvider {
     let thisProvider = this;
     this.onCompletionStopper = Identity.onAttemptCompletion(
       function (error, result) {
-        if (result.serviceName === thisProvider.name) {
+        if (result && result.identity.serviceName === thisProvider.name) {
           thisProvider.onCompletionCalls.push({ error: error, result: result });
         }
       }
@@ -68,7 +68,6 @@ Tinytest.add("identity - delegation to service with create", (test) => {
     error: prov.errorOnCompletion, 
     result: {
       identity: prov.resultOnCompletion.identity,
-      serviceName: prov.name,
       methodName: 'create',
       clientState: options.clientState
     }
@@ -84,7 +83,6 @@ Tinytest.add("identity - delegation to service with create", (test) => {
     error: prov.errorOnCompletion, 
     result: {
       identity: prov.resultOnCompletion.identity,
-      serviceName: prov.name,
       methodName: 'authenticate',
       clientState: options.clientState
     }
@@ -105,4 +103,96 @@ Tinytest.add("identity - delegation to service without create", (test) => {
   retVal = Identity.authenticate(prov.name, options);
   test.equal(retVal, prov.valToReturn, 'auth returns value from service');
   test.equal(prov.authenticateCalls, [options], 'auth called');
+});
+
+
+// The FakeLoginService just creates users that record the arguments passed to
+// createWithFakeLoginService. Then a call to loginWithFakeLoginService with the
+// same arguments will return that user.
+function createWithFakeLoginService(param1, param2, callback) {
+  Accounts.callLoginMethod({
+    methodName: 'Identity.test.createWithFakeLoginService',
+    methodArguments: [param1, param2],
+    userCallback: callback
+  });
+}
+function loginWithFakeLoginService(param1, param2, callback) {
+  Accounts.callLoginMethod({
+    methodArguments: [{ identityFakeLoginService: [param1, param2] } ],
+    userCallback: callback
+  });
+}
+
+
+Tinytest.addAsync("identity - FakeLoginService", (test, done) => {
+  // Test that FakeLoginService can be trusted to work correctly in other tests.
+  Identity._isEstablishing = false;
+  let args = [Random.id(), Random.id()];
+  let userId;
+  Meteor.logout((err) => {
+    test.isUndefined(err, `Error during logout: ${err}`);
+    createWithFakeLoginService(args[0], args[1], (err) => {
+      test.isUndefined(err, `Error during createWithFakeLoginService: ${err}`);
+      userId = Meteor.userId();
+      test.isNotNull(userId, 'Not logged in by createWithFakeLoginService');
+      Meteor.logout((err) => {
+        test.isUndefined(err, `Error during logout: ${err}`);
+        test.isNull(Meteor.userId(), 'Not logged out');        
+        loginWithFakeLoginService(args[0], args[1], (err) => {
+          test.isUndefined(err, 
+            `Error during loginWithFakeLoginService: ${err}`);
+          test.isNotNull(Meteor.userId(), 
+            'Not logged in by loginWithFakeLoginService');
+          test.equal(Meteor.userId(), userId);
+          done();
+        });
+      });
+    });
+  });
+});
+
+Tinytest.addAsync("identity - establishWithLoginMethod", (test, done) => {
+  // Test creating and using identities via the FakeLoginService
+  Identity._isEstablishing = false;
+  let args = [Random.id(), Random.id()];
+  createWithEstablish();
+  function createWithEstablish() {
+    Identity.establishWithLoginMethod(createWithFakeLoginService, args[0], args[1], 
+      verifyCreated);
+  }
+  function verifyCreated(err, result) {
+    test.isUndefined(err, `Error during establishWithLoginMethod: ${err}`);
+    test.equal(result.identity.serviceName, 'loginMethod');
+    Meteor.call('Identity.test.getVerifiedIdentityRecord', result.identity, 
+      (err, result) => {
+        test.isUndefined(err, 'Error verifying identity: ${err}');
+        test.equal(result.services.identityFakeLoginService.args, args, 'args');
+        verifyLoginFails();
+    });    
+  }
+  function verifyLoginFails() {
+    loginWithFakeLoginService(args[0], args[1], (err, result) => {
+      test.instanceOf(err, Meteor.Error, 'expected an error');
+      // Should react as though the user doesn't exist so that an attacker
+      // can't fish for users by checking error messages.
+      test.equal(err.error, 403);
+      test.equal(err.reason, "User not found");      
+      authenticateWithEstablish();
+    });
+  }
+  function authenticateWithEstablish() {
+    Identity.establishWithLoginMethod(loginWithFakeLoginService, args[0], args[1], 
+      verifyAuthenticated);    
+  }
+  
+  function verifyAuthenticated(err, result) {
+    test.isUndefined(err, `Error during establishWithLoginMethod: ${err}`);
+    test.equal(result.identity.serviceName, 'loginMethod');
+    Meteor.call('Identity.test.getVerifiedIdentityRecord', result.identity, 
+      (err, result) => {
+        test.isUndefined(err, 'Error verifying identity: ${err}');
+        test.equal(result.services.identityFakeLoginService.args, args, 'args');
+        done();
+    });    
+  }
 });
