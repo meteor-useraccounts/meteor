@@ -48,7 +48,7 @@ Accounts.registerLoginHandler('identityFakeLoginService', (options) => {
 
 Meteor.methods({
   'Identity.loginMethod.test.getVerifiedIdentityRecord': function (identity) {
-    let id = Identity.verify(identity);
-    return Meteor.users.findOne(id);
+    Identity.verify(identity);
+    return Meteor.users.findOne(identity.id);
   }
 });

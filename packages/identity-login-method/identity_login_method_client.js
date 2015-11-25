@@ -3,29 +3,28 @@
 class IdentityLoginMethodImpl extends IdentityLoginMethodCommonImpl {
   constructor() {
     super();
+    let self = this;
     
     // A 'context' object that keeps track of whether a call to 
     // establishWithLoginMethod is in progress on the current connection.
     // This is a persistent ReactiveDict so that it will survive a hot code push
     // or redirect. 
-    this._ctx = new ReactiveDict('identity_login_method_ctx');
+    self._ctx = new ReactiveDict('identity_login_method_ctx');
     
     // Whenever the "establishing" state changes on the client, have the server 
     // change the state associated with the connection as well.
-    this._ctx.setDefault('isEstablishing', false);
-    this._isEstablishing = this._ctx.get('isEstablishing'); // sync server
+    self._ctx.setDefault('isEstablishing', false);
+    self._isEstablishing = self._ctx.get('isEstablishing'); // sync server
 
-    let thisIdentityLoginMethodImpl = this;    
     // The redirect flow of services which use accounts-oauth will pass the
     // result of the login method to onPageLoadLogin callbacks. Register a
     // callback that with complete any establishWithLoginMethod call that is in
     // progress.
     Accounts.onPageLoadLogin((attemptInfo) => {
       var ai = attemptInfo;
-      if (ai && ai.error &&
-          ai.error.error === thisIdentityLoginMethodImpl.IDENTITY_ESTABLISHED &&
-          thisIdentityLoginMethodImpl._isEstablishing) {
-        thisIdentityLoginMethodImpl._completeEstablishing(err);
+      if (ai && ai.error && ai.error.error === self.IDENTITY_ESTABLISHED &&
+          self._isEstablishing) {
+        self._completeEstablishing(err);
       }
     });
   }
@@ -35,7 +34,8 @@ class IdentityLoginMethodImpl extends IdentityLoginMethodCommonImpl {
     return this._ctx.get('isEstablishing');
   }
   set _isEstablishing(val) {
-    if (val !== this._isEstablishing) {
+    let self = this;
+    if (val !== self._isEstablishing) {
       Meteor.call('Identity.loginMethod._setEstablishing',
         val,
         (error) => {
@@ -46,27 +46,28 @@ class IdentityLoginMethodImpl extends IdentityLoginMethodCommonImpl {
           }
         });
     }
-    this._ctx.set('isEstablishing', val);
+    self._ctx.set('isEstablishing', val);
   }
     
   establishWith(loginMethod, ...args) {
+    check(loginMethod, Function);
+    let self = this;
     let callback;
 
     // Enable "establishng"
-    this._isEstablishing = true;
+    self._isEstablishing = true;
     
     // Create/modify the callback to disable "establishing" and run
     // onAttemptCompletion handlers
     if (_.isFunction(_.last(args))) {
       callback = args.pop();
     }
-    let thisIdentityLoginMethodImpl = this;
-    callback = _.wrap(callback, function (origCallback, err /*, result*/) {
+    callback = _.wrap(callback, (origCallback, err) => {
       if (! err) {
         // This should never happen.
         throw new Error(`${loginMethod.name} failed to return an error`);
       }
-      thisIdentityLoginMethodImpl._completeEstablishing(err, origCallback);
+      self._completeEstablishing(err, origCallback);
     });
     args.push(callback);
 
@@ -75,9 +76,10 @@ class IdentityLoginMethodImpl extends IdentityLoginMethodCommonImpl {
   }
   
   _completeEstablishing(err, callback) {
-    this._isEstablishing = false;
-    if (err.error !== this.IDENTITY_ESTABLISHED) {
-      this.fireAttemptCompletion(err);
+    let self = this;
+    self._isEstablishing = false;
+    if (err.error !== self.IDENTITY_ESTABLISHED) {
+      self.fireAttemptCompletion(err);
       if (callback) {
         callback.call(undefined, err);
       }

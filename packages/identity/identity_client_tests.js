@@ -2,35 +2,35 @@
 
 class StubIdentityServiceProvider {
   constructor(name, supportsCreate) {
-    this.name = name;
-    this.valToReturn = { returnedBy: name };
-    this.resultOnCompletion = { identity: { serviceName: name } };
-    this.errorOnCompletion = undefined;
-    this.authenticateCalls = [];
-    this.service = {
+    let self = this;
+    self.name = name;
+    self.valToReturn = { returnedBy: name };
+    self.resultOnCompletion = { identity: { serviceName: name } };
+    self.errorOnCompletion = undefined;
+    self.authenticateCalls = [];
+    self.service = {
       name: name,
-      authenticate: (options) => {
-        this.authenticateCalls.push(options);
-        Identity.fireAttemptCompletion(this.errorOnCompletion,
-          this.resultOnCompletion);
-        return this.valToReturn;
+      authenticate(options) {
+        self.authenticateCalls.push(options);
+        Identity.fireAttemptCompletion(self.errorOnCompletion,
+          self.resultOnCompletion);
+        return self.valToReturn;
       }
     };
     if (supportsCreate) {
-      this.createCalls = [];
-      this.service.create = (options) => {
-        this.createCalls.push(options);
-        Identity.fireAttemptCompletion(this.errorOnCompletion,
-          this.resultOnCompletion);
-        return this.valToReturn;
+      self.createCalls = [];
+      self.service.create = (options) => {
+        self.createCalls.push(options);
+        Identity.fireAttemptCompletion(self.errorOnCompletion,
+          self.resultOnCompletion);
+        return self.valToReturn;
       };
     }      
-    this.onCompletionCalls = [];
-    let thisProvider = this;
+    self.onCompletionCalls = [];
     this.onCompletionStopper = Identity.onAttemptCompletion(
-      function (error, result) {
-        if (result && result.identity.serviceName === thisProvider.name) {
-          thisProvider.onCompletionCalls.push({ error: error, result: result });
+      (error, result) => {
+        if (result && result.identity.serviceName === self.name) {
+          self.onCompletionCalls.push({ error: error, result: result });
         }
       }
     );

@@ -3,19 +3,17 @@
 class IdentityImpl extends IdentityCommonImpl {
   constructor() {
     super();
-    
+    let self = this;
     // Hook manging callbacks registered by onAttemptCompletion() and run by
     // fireAttemptCompletion()
-    this._completionHook = new Hook({ bindEnvironment: false });
+    self._completionHook = new Hook({ bindEnvironment: false });
     
     // A 'context' object that keeps track of the most recent
     // create/authenticate invocation.
     // This is a persistent ReactiveDict so that it will survive a hot code push
     // or redirect.
     // TODO: Allow each IdentityImpl to have it's own reactive dict.
-    this._ctx = new ReactiveDict('identity_ctx');
-    
-    let thisIdentityImpl = this;
+    self._ctx = new ReactiveDict('identity_ctx');
   }
     
   // Information related to the most recent create/authentication call.
@@ -37,11 +35,12 @@ class IdentityImpl extends IdentityCommonImpl {
   create(serviceName, options) {
     check(serviceName, String);
     check(options, Object);
-    let svc = this._getServiceByName(serviceName);
+    let self = this;
+    let svc = self._getServiceByName(serviceName);
     if (! svc.create) {
       return false;
     }
-    this._invocation = {
+    self._invocation = {
       serviceName: serviceName,
       methodName: 'create',
       clientState: options.clientState
@@ -52,8 +51,9 @@ class IdentityImpl extends IdentityCommonImpl {
   authenticate(serviceName, options) {
     check(serviceName, String);
     check(options, Object);
-    let svc = this._getServiceByName(serviceName);
-    this._invocation = {
+    let self = this;
+    let svc = self._getServiceByName(serviceName);
+    self._invocation = {
       serviceName: serviceName,
       methodName: 'authenticate',
       clientState: options.clientState
@@ -68,13 +68,13 @@ class IdentityImpl extends IdentityCommonImpl {
   
   fireAttemptCompletion(error, result) {
     check(error, Match.OneOf(undefined, Error));
-    var thisIdentityImpl = this;
+    var self = this;
     if (! error) {
       result = _.clone(result);
-      if (thisIdentityImpl._invocation) {
-        check(thisIdentityImpl._invocation, Object);
+      if (self._invocation) {
+        check(self._invocation, Object);
         result = _.defaults(result,
-          _.pick(thisIdentityImpl._invocation, 'methodName', 'clientState'));
+          _.pick(self._invocation, 'methodName', 'clientState'));
       }
       check(result, Match.ObjectIncluding({
         methodName: String,
@@ -85,10 +85,10 @@ class IdentityImpl extends IdentityCommonImpl {
     }
     
     // Clear the invocation which is now complete.
-    thisIdentityImpl._invocation = undefined;
+    self._invocation = undefined;
     
     // Call the handlers
-    this._completionHook.each( (cb) => {
+    self._completionHook.each( (cb) => {
       cb.call(undefined, 
         error, result);
       return true;

@@ -31,8 +31,9 @@ class IdentityLoginMethodServerImpl extends IdentityLoginMethodCommonImpl {
         return true;
       }
 
+      // Reserved for future use. For now, the mere existence of this property
+      // prevents a user from logging in to the account.
       user._identity = {
-        // TODO: Add tokens, etc. to user for verification        
       };
       var userId;
       try {
@@ -58,7 +59,6 @@ class IdentityLoginMethodServerImpl extends IdentityLoginMethodCommonImpl {
         // If an establishWithLoginMethod call is in progress and the login
         // method succeeded, then establish the identity
         if (ai.connection._identityIsEstablishing && ai.user) {
-          // TODO: Update tokens, etc for verification
           thisIdentityLoginMethodImpl._establishAndThrow(ai.connection, 
             ai.user._id);
         }
@@ -67,18 +67,6 @@ class IdentityLoginMethodServerImpl extends IdentityLoginMethodCommonImpl {
         }
         return true;
     });
-    
-    // Register an identity service that can verify the identities we create.
-    Identity.registerService({
-      name: 'loginMethod', 
-      verify(identity) {
-        // TODO: do real verification
-        if (identity.serviceName !== 'loginMethod') {
-          throw new Meteor.Error(Identity.VERIFICATION_FAILED);
-        }
-        return identity.id;
-      }
-    });
   }
   
   // Associate the identity corresponding to the user document with the
@@ -86,11 +74,12 @@ class IdentityLoginMethodServerImpl extends IdentityLoginMethodCommonImpl {
   // Identity._getIdentity server method. Always throws the error indicating
   // that the identity was established.
   _establishAndThrow(connection, userId) {
-    connection._identity = {
+    let identity = {
       serviceName: 'loginMethod',
       id: userId
-      // TODO: Add tokens, etc. for verification
     };
+    Identity.secure(identity);
+    connection._identity = identity;
     throw new Meteor.Error(this.IDENTITY_ESTABLISHED, 
       'Identity established.');    
   }
