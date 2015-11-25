@@ -9,7 +9,7 @@ class Secrets extends Map {
     super();
     let self = this;
     
-    // Identities secured with secrets older than this will be rejected
+    // Identities signed with secrets older than this will be rejected
     self.maxSecretAgeMs =  maxSecretAgeMs;
     
     // The most recent secret
@@ -113,7 +113,7 @@ class IdentityServerImpl extends IdentityCommonImpl {
     // byt the setter for this.maxSecretAgeMs.
     self._secrets = null;
     
-    // Identities secured with secrets older than this will be rejected
+    // Identities signed with secrets older than this will be rejected
     self.maxSecretAgeMs =  2*24*60*60*1000;    
   }
   
@@ -130,7 +130,7 @@ class IdentityServerImpl extends IdentityCommonImpl {
     return this._secrets.maxSecretAgeMs;
   }
   
-  secure(identity) {
+  sign(identity) {
     check(identity, Match.ObjectIncluding({
       serviceName: String,
       id: String

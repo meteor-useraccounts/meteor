@@ -172,7 +172,7 @@ constructed using the values passed to the most recent call to
 
 ## Server-side API for identity service developers
 
-### `Identity.secure(identity)`
+### `Identity.sign(identity)`
 
 Modify `identity` such that `Identity.verify` can detect tampering.
 
@@ -191,7 +191,7 @@ client state before storing it on the server or passing it to another client
 Verifies that `identity` represents the end user that it claims to. At a
 minimum, it verifies that `identity.serviceName`, `identity.id`, and
 `identity.when` have not been tampered with since `identity` was passed to
-`Identity.secure`. If the identity can not be verified, throws `new
+`Identity.sign`. If the identity can not be verified, throws `new
 Meteor.Error('identity-verification-failed')`.
 
 ### `Identity.validateClientState(func)`

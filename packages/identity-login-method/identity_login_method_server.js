@@ -78,7 +78,7 @@ class IdentityLoginMethodServerImpl extends IdentityLoginMethodCommonImpl {
       serviceName: 'loginMethod',
       id: userId
     };
-    Identity.secure(identity);
+    Identity.sign(identity);
     connection._identity = identity;
     throw new Meteor.Error(this.IDENTITY_ESTABLISHED, 
       'Identity established.');    
