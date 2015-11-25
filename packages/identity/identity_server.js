@@ -137,9 +137,10 @@ class IdentityServerImpl extends IdentityCommonImpl {
     }));
     let self = this;
     let secret = self._secrets.getCurrent();
-    identity._jwt = jwt.sign({
-      _keyId: secret._id
-    }, secret.key, {
+    let payload = 
+      _.omit(identity, 'serviceName', 'id', 'when', '_keyId', '_jwt');
+    payload._keyId = secret._id;
+    identity._jwt = jwt.sign(payload, secret.key, {
       issuer: identity.serviceName,
       subject: identity.id
     });
@@ -175,6 +176,15 @@ class IdentityServerImpl extends IdentityCommonImpl {
       if (identity._keyId !== payload._keyId) {
         throw new Error(
           `keyid mismatch: expected ${identity._keyId} got ${payload._keyId}`);
+      }
+      let actual = _.omit(payload, 'iat', 'iss', 'sub');
+      actual.when = payload.iat;
+      actual.id = payload.sub;
+      actual.serviceName = payload.iss;
+      actual._jwt = identity._jwt;
+      if (! _.isEqual(identity, actual)) {
+        throw new Error(
+          `other payload mismatch: expected ${identity} got ${actual}`);        
       }
     } catch (err) {
       console.warn(`Identity verification failed with ${err}`);

@@ -81,7 +81,7 @@ An identity contains at least the following properties:
 * `id` - an identifier corresponding to the end user. The identifier is
   unique within the service and never reassigned to a different end user.
   
-* `when` - a `Date` object corresponding to when the identity was issued.
+* `when` - when the identity was issued, in seconds since the epoch.
     
 Depending on the identity service, an attempt might never complete. Moreover, if
 it completes the outcome might be reported (by calling the callbacks registered

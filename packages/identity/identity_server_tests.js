@@ -7,13 +7,16 @@ Tinytest.add("identity - sign and verify", (test) => {
   };
   Identity.sign(identity1);
   let curTime = Date.now();
-  test.isTrue(curTime/1000 - identity1.when < 1000, 'just created');
+  test.isTrue(curTime/1000 - identity1.when < 1, 'just created');
   Identity.verify(identity1);
 
   let identity2 = {
     serviceName: 'service2',
-    id: 'id2'
+    id: 'id2',
   };
+  // Add another property with a random name to be sure it is signed as well
+  let propName = `testProp${Random.id()}`;
+  identity2[propName] = 'testValue';
   
   Identity.sign(identity2);
   Identity.verify(identity2);  
@@ -34,7 +37,13 @@ Tinytest.add("identity - sign and verify", (test) => {
   // Tamper with when it was signed
   identity2.when += 1;
   test.throws(() => { Identity.verify(identity2); }, 'verification failed');
+  identity2.when -= 1;
 
+  // Tamper with extra property
+  identity2[propName] = 'changedValue';
+  test.throws(() => { Identity.verify(identity2); }, 'verification failed');
+  identity2[propName] = 'testValue'
+  
   console.warn('=== Done testing identity tampering');
 });
 
