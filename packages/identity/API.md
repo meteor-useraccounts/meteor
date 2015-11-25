@@ -73,9 +73,16 @@ associated with an existing account.
     (potentially) different client.
     
   * `identity` - the identity that was created or authenticated.
-    `identity.serviceName` contains the name of the service that issued the
-    identity.
   
+An identity contains at least the following properties:
+
+* `serviceName` - the name of the service that issued the identity.
+  
+* `id` - an identifier corresponding to the end user. The identifier is
+  unique within the service and never reassigned to a different end user.
+  
+* `when` - a `Date` object corresponding to when the identity was issued.
+    
 Depending on the identity service, an attempt might never complete. Moreover, if
 it completes the outcome might be reported (by calling the callbacks registered
 with `Identity.onAttemptCompletion`) on a different client than the client that
@@ -165,18 +172,9 @@ constructed using the values passed to the most recent call to
 
 ## Server-side API for identity service developers
 
-### `Identity.registerService(identityService)`
+### `Identity.secure(identity)`
 
-Register `identityService` as an identity service. 
-
-`identityService.name` is the name of the identity service.
-
-`identityService.verify` is a function which takes an identity, verifies that it
-represents the end user that it claims to, and returns an identifier
-corresponding to that end user. The returned identifier is unique within the
-service and never reassigned to a different end user. If the identity can not be
-verified, this function should `throw new
-Error('identity-verification-failed')`.
+Modify `identity` such that `Identity.verify` can detect tampering.
 
 ### `Identity.isClientStateValid(clientState)`
 
@@ -188,30 +186,13 @@ client state before storing it on the server or passing it to another client
 
 ## Server-side API for policy enforcement
 
-### `Identity.validateVerificationAttempt(func)`
-
-Set policy controlling whether a verified identity can be used. Analogous to
-`Accounts.validateLoginAttempt`, but for identities instead of accounts. If the
-identity service's `verify` function returned an end user identifier, that will
-it will be in `attemptInfo.subjectId` and the initial value of
-`attemptInfo.allowed` will be `true`. If the identity service's `verify`
-function throws an error, `attemptInfo.subjectId` will be `undefined`, the
-initial value of `attemptInfo.allowed` will be `false` and the initial value of
-`attemptInfo.error` will be the error. If `attemptInfo.allowed` is `false`,
-`func` can not override it (but can log the failure, for example). Otherwise,
-`func` can set `attemptInfo.allowed = false` if `attemptInfo.identity` should
-not be used. All `func`s registered with `Identity.validateVerificationAttempt`
-are called whenever an identity is verified.
-
 ### `Identity.verify(identity)`
 
-Call the `verify` function for `identity.serviceName` and then the functions
-registered with `Identity.validateVerificationAttempt`. If `identity` is
-verified and the verification attempt is deemed valid, returns an identifier
-corresponding to the end user represented by the identity. The returned
-identifier is unique within the service and never reassigned to a different end
-user. If `identity` can not be verified or the verification attempt is deemed
-invalid, throws `new Error('invalid-identity')`.
+Verifies that `identity` represents the end user that it claims to. At a
+minimum, it verifies that `identity.serviceName`, `identity.id`, and
+`identity.when` have not been tampered with since `identity` was passed to
+`Identity.secure`. If the identity can not be verified, throws `new
+Meteor.Error('identity-verification-failed')`.
 
 ### `Identity.validateClientState(func)`
 
@@ -373,15 +354,34 @@ the user's account before calling `Accounts.addIdentity()`. This could actually
 be done automatically within `Identity.create` and `Identity.authenticate` and
 whatever calls the `Identity.onAttemptCompletion` callbacks.
 
-### Identity tokens must be secured
+### Identity revocation isn't needed
 
-Identity tokens are as sensitive as login tokens. Login tokens are stored in
-local storage, but since identity tokens are only needed briefly that is not
-necessary. However, since the new API exposes identity objects that can be used
-to login while the old API did not expose login tokens, we need to ensure that
-the developer does not accidentally share an identity tokens by trying to share
-an identity object. To achieve this we can store the identity tokens itself in a
-function closure attached to the identity object. Like this:
+Identities can only be used to gain access to accounts. Each account should have
+an `services.identity.issuedAfter` property and not permit login using an
+identity with a `when` property that is earlier. Once a user is logged in to an
+account (i.e. has a login token), he no longer needs the identity he passed to
+`Accounts.login`, `Accounts.create`, or `Accounts.addIdentity`. Those methods,
+as well as `Meteor.logout` and `Meteor.logoutOtherClients`, should set
+`services.identity.issuedAfter` to `new Date()` to ensure that only newly issued
+identites can be used to login to the account.
+
+To avoid having to maintain a DB record for each identity issued, they can be
+signed with a server secret. To limit damage caused by a compromised secret,
+generate a new secret daily and accept identities signed with either of the two
+most recent secrets. If a compromise is actually suspected, all secrets can be
+replaced and the only cost is that logged out users need to reestablish their
+identities.
+
+### Unused identity tokens must be secured
+
+Identity tokens that have not yet been used are as sensitive as login tokens.
+Login tokens are stored in local storage, but since identity tokens are only
+needed briefly that is not necessary. However, since the new API exposes
+identity objects that can be used to login while the old API did not expose
+login tokens, we need to ensure that the developer does not accidentally share
+an identity tokens by trying to share an identity object. To achieve this we can
+store the identity tokens itself in a function closure attached to the identity
+object. Like this:
 
 ```js
 createIdentityForToken(token) {

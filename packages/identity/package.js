@@ -3,6 +3,8 @@ Package.describe({
   version: "0.0.1"
 });
 
+Npm.depends({jsonwebtoken: "5.4.1"});
+
 Package.onUse(function (api) {
   api.use('underscore', ['client', 'server']);
   api.use('ecmascript', ['client', 'server']);
@@ -10,6 +12,8 @@ Package.onUse(function (api) {
   api.use('callback-hook', ['client', 'server']);
   api.use('reactive-dict', ['client', 'server']);
   api.use('tracker', ['client', 'server']);
+  api.use('random', ['server']);
+  api.use('mongo', ['server']);
 
   api.export('Identity', ['client', 'server']);
 
