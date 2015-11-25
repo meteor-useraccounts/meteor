@@ -114,7 +114,16 @@ class IdentityServerImpl extends IdentityCommonImpl {
     self._secrets = null;
     
     // Identities signed with secrets older than this will be rejected
-    self.maxSecretAgeMs =  2*24*60*60*1000;    
+    self.maxSecretAgeMs =  2*24*60*60*1000;
+
+    // The secrets are stored in the database. If `additionalSecret` is set, it
+    // will be combined with the secrets in the database, so that an attacker
+    // would need to know both `additionalSecret` and a recent secret in the
+    // database in order to sign identities. An identity signed while
+    // `additionalSecret` has a particular value will only verify when
+    // `additionalSecret` has the same value.
+    let settings = Meteor.settings.identity;
+    self.additionalSecret = settings && settings.additionalSecret || '';
   }
   
   set maxSecretAgeMs(val) {
@@ -129,7 +138,7 @@ class IdentityServerImpl extends IdentityCommonImpl {
   get maxSecretAgeMs() {
     return this._secrets.maxSecretAgeMs;
   }
-  
+    
   sign(identity) {
     check(identity, Match.ObjectIncluding({
       serviceName: String,
@@ -140,7 +149,7 @@ class IdentityServerImpl extends IdentityCommonImpl {
     let payload = 
       _.omit(identity, 'serviceName', 'id', 'when', '_keyId', '_jwt');
     payload._keyId = secret._id;
-    identity._jwt = jwt.sign(payload, secret.key, {
+    identity._jwt = jwt.sign(payload, self.additionalSecret + secret.key, {
       issuer: identity.serviceName,
       subject: identity.id
     });
@@ -162,7 +171,7 @@ class IdentityServerImpl extends IdentityCommonImpl {
     let payload;
     try {
       let secret = self._secrets.getForIdentity(identity);
-      payload = jwt.verify(identity._jwt, secret.key, {
+      payload = jwt.verify(identity._jwt, self.additionalSecret + secret.key, {
        issuer: identity.serviceName
       });
       if (identity.when !== payload.iat) {

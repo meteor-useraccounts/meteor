@@ -42,7 +42,7 @@ Tinytest.add("identity - sign and verify", (test) => {
   // Tamper with extra property
   identity2[propName] = 'changedValue';
   test.throws(() => { Identity.verify(identity2); }, 'verification failed');
-  identity2[propName] = 'testValue'
+  identity2[propName] = 'testValue';
   
   console.warn('=== Done testing identity tampering');
 });
@@ -86,4 +86,32 @@ Tinytest.add("identity - reject old secrets, maintain a fresh one", (test) => {
   // break anything.
   Identity.sign(identity);
   Identity.verify(identity);
+});
+
+Tinytest.add("identity - additionalSecret used", (test) => {
+  let identity = {
+    serviceName: 'service',
+    id: 'id'
+  };
+  console.warn('=== Testing additionalSecret, expect error messages');
+  Identity.sign(identity);
+  Identity.verify(identity);
+  Identity.additionalSecret = 'secret1';
+  test.throws(() => { Identity.verify(identity); }, 'verification failed');
+
+  Identity.sign(identity);
+  Identity.verify(identity);
+  Identity.additionalSecret = 'secret2';
+  test.throws(() => { Identity.verify(identity); }, 'verification failed');
+  console.warn('=== Done testing additionalSecret');
+  
+  let origIdentitySettings = Meteor.settings.identity;
+  try {
+    Meteor.settings.identity = { additionalSecret: 'secret1' };
+    let IdentityServerImpl = Object.getPrototypeOf(Identity).constructor;
+    let IdentityServer1 = new IdentityServerImpl();
+    IdentityServer1.verify(identity);
+  } finally {
+    Meteor.settings.identity = origIdentitySettings;
+  }
 });

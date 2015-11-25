@@ -194,6 +194,23 @@ minimum, it verifies that `identity.serviceName`, `identity.id`, and
 `Identity.sign`. If the identity can not be verified, throws `new
 Meteor.Error('identity-verification-failed')`.
 
+### `Identity.maxSecretAgeMs`
+
+Identities not signed within the last `maxSecretAgeMs` milliseconds will be
+rejected. This defaults to 2 days.
+
+### `Identity.additionalSecret`
+
+Identities are signed using a secret that changes at least every
+`maxSecretAgeMs`. The secrets are stored in the database. If `additionalSecret`
+is set, it will be combined with the secrets in the database, so that an
+attacker would need to know both `additionalSecret` and a recent secret in the
+database in order to sign identities. An identity signed while
+`additionalSecret` has a particular value will only verify when
+`additionalSecret` has the same value.
+
+The default value is the value of `Meteor.settings.identity.additionalSecret`.
+
 ### `Identity.validateClientState(func)`
 
 Set policy controlling what values are considered valid by
