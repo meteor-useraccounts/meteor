@@ -21,30 +21,31 @@ Tinytest.add("identity - sign and verify", (test) => {
   Identity.sign(identity2);
   Identity.verify(identity2);  
   
-  console.warn('=== Testing identity tampering, expect error messages');
   // Tamper with the id
   identity2.id = 'id1';
+  Log._suppress(1);
   test.throws(() => { Identity.verify(identity2); }, 'verification failed');
   identity2.id = 'id2';
   Identity.verify(identity2);
 
   // Tamper with the service
   identity2.serviceName = 'service1';
+  Log._suppress(1);
   test.throws(() => { Identity.verify(identity2); }, 'verification failed');
   identity2.serviceName = 'service2';
   Identity.verify(identity2);
   
   // Tamper with when it was signed
   identity2.when += 1;
+  Log._suppress(1);
   test.throws(() => { Identity.verify(identity2); }, 'verification failed');
   identity2.when -= 1;
 
   // Tamper with extra property
   identity2[propName] = 'changedValue';
+  Log._suppress(1);
   test.throws(() => { Identity.verify(identity2); }, 'verification failed');
   identity2[propName] = 'testValue';
-  
-  console.warn('=== Done testing identity tampering');
 });
 
 Tinytest.add("identity - sign and verify multi-server", (test) => {
@@ -71,9 +72,8 @@ Tinytest.add("identity - reject old secrets, maintain a fresh one", (test) => {
   try {
     Identity.maxSecretAgeMs = 100;
     Meteor._sleepForMs(101);
-    console.warn('=== Testing reject of old secrets, expect error messages');
+    Log._suppress(1);
     test.throws(() => { Identity.verify(identity); }, 'verification failed');
-    console.warn('=== Done testing reject of old secrets');
     // Make sure we can still sign identities and verified ones that have been
     // signed since the old secret expired. This tests that a new secret is
     // being used.
@@ -93,17 +93,17 @@ Tinytest.add("identity - additionalSecret used", (test) => {
     serviceName: 'service',
     id: 'id'
   };
-  console.warn('=== Testing additionalSecret, expect error messages');
   Identity.sign(identity);
   Identity.verify(identity);
   Identity.additionalSecret = 'secret1';
+  Log._suppress(1);
   test.throws(() => { Identity.verify(identity); }, 'verification failed');
 
   Identity.sign(identity);
   Identity.verify(identity);
   Identity.additionalSecret = 'secret2';
+  Log._suppress(1);
   test.throws(() => { Identity.verify(identity); }, 'verification failed');
-  console.warn('=== Done testing additionalSecret');
   
   let origIdentitySettings = Meteor.settings.identity;
   try {

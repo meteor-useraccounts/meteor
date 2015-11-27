@@ -14,6 +14,7 @@ Package.onUse(function (api) {
   api.use('tracker', ['client', 'server']);
   api.use('random', ['server']);
   api.use('mongo', ['server']);
+  api.use('logging', ['server']);
 
   api.export('Identity', ['client', 'server']);
 
@@ -30,7 +31,8 @@ Package.onTest(function (api) {
     'underscore',
     'ecmascript',
     'accounts-base',
-    'random'
+    'random',
+    'logging'
   ]);
 
   api.addFiles('identity_client_tests.js', 'client');

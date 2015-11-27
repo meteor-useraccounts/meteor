@@ -196,7 +196,7 @@ class IdentityServerImpl extends IdentityCommonImpl {
           `other payload mismatch: expected ${identity} got ${actual}`);        
       }
     } catch (err) {
-      console.warn(`Identity verification failed with ${err}`);
+      Log.warn(`Identity verification failed with ${err}`);
       // Always throw VERIFICATION_FAILED to minimize info available to
       // attackers.
       throw new Meteor.Error(self.VERIFICATION_FAILED, 
