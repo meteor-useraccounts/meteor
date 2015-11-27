@@ -20,8 +20,7 @@ options = {
     google: googleSpecificOptions,
     password: passwordSpecificOptions,
    ...
-  },
-  clientState: 'string to pass to onAttemptCompletion() handler'
+  }
 }
 ```
 
@@ -37,19 +36,23 @@ Ask the specified service to create an identity. Returns `false`, if the service
 does not support creating identities. Otherwise returns `true` and initiates an
 attempt to create an identity.
 
-When the attempt completes, the `options.clientState` is available as
-`invocation.clientState` in the callbacks registered with
-`Identity.onAttemptCompletion` on what could be a different client than the one
-where `Identity.create` was called, depending on the identity service.
+When the attempt completes, the callbacks registered with
+`Identity.onAttemptCompletion` are called on what could be a different client
+than the one where `Identity.create` was called, depending on the identity
+service. As a result, callers should use the current URL to store any client
+state that will be needed after the attempt completes. This is typically done
+using parameters for the current route.
 
 ### `Identity.authenticate(serviceName, options)`
 
 Ask the specified identity service to attempt to determine the user's identity.
 
-When the attempt completes, the `options.clientState` is available as
-`invocation.clientState` in the callbacks registered with
-`Identity.onAttemptCompletion` on what could be a different client than the one
-where `Identity.authenticate` was called, depending on the identity service.
+When the attempt completes, the callbacks registered with
+`Identity.onAttemptCompletion` are called on what could be a different client
+than the one where `Identity.authenticate` was called, depending on the identity
+service. As a result, callers should use the current URL to store any client
+state that will be needed after the attempt completes. This is typically done
+using parameters for the current route.
 
 ### `Identity.onAttemptCompletion(callback)`
 
@@ -67,10 +70,6 @@ associated with an existing account.
 
   * `methodName` - the name of the method that was called on the initiating
     client (either `create`, or `authenticate`). 
-
-  * `clientState` - the `options.clientState` passed to the method that
-    initiated the attempt. This can be used to migrate the user's state to the
-    (potentially) different client.
     
   * `identity` - the identity that was created or authenticated.
   
@@ -165,24 +164,15 @@ a new identity with the identity service.
 Pass the outcome of an identity creation or authentication attempt to the
 `Identity.onAttemptCompletion` callbacks. If `result` is not `undefined`, it
 must contain at least an `identity` property whose value is the identity that
-was created or authenticated. If it does not contain `clientState`,
-`identity.serviceName`, and/or `methodName` properties, those  will be
-constructed using the values passed to the most recent call to
-`Identity.authenticate` or `Identity.create`.
+was created or authenticated. If it does not contain  `identity.serviceName`
+and/or `methodName` properties, those  will be constructed using the values
+passed to the most recent call to `Identity.authenticate` or `Identity.create`.
 
 ## Server-side API for identity service developers
 
 ### `Identity.sign(identity)`
 
 Modify `identity` such that `Identity.verify` can detect tampering.
-
-### `Identity.isClientStateValid(clientState)`
-
-Returns `false` if any `func` registered with
-`Identity.validateClientState(func)` returns a falsey value. Otherwise, returns
-`true`. An identity service should use this function to check the validity of
-client state before storing it on the server or passing it to another client
-(e.g. in an email). See `Identity.validateClientState` for more info.
 
 ## Server-side API for policy enforcement
 
@@ -210,19 +200,6 @@ database in order to sign identities. An identity signed while
 `additionalSecret` has the same value.
 
 The default value is the value of `Meteor.settings.identity.additionalSecret`.
-
-### `Identity.validateClientState(func)`
-
-Set policy controlling what values are considered valid by
-`Identity.isClientStateValid(clientState)`. This allows a consistent policy to
-be enforced across multiple identity services that need to store client state
-and/or pass it to other clients. The policy can be used to prevent an attacker
-from exploiting client state to use the app to store or transfer his own data.
-
-When `Identity.isClientStateValid(clientState)` is called, `clientState` is
-passed to all `func`s registered with `Identity.validateClientState(func)`. If
-any `func` returns a falsey value, `Identity.isClientStateValid` will return
-`false`. Otherwise it will return `true.`
 
 ### `Accounts.addSignedUpInterceptor(func)`
 
@@ -268,9 +245,9 @@ Identity.authenticate(serviceName, options);
 Sign-up with Service X:
 ```js
 var options = {
-  clientState: "SigningUp"
   ...
 }
+Router.go('SignUp');
 if (!Identity.create(serviceName, options)) {
   Identity.authenticate(serviceName, options);
 }
@@ -279,9 +256,9 @@ if (!Identity.create(serviceName, options)) {
 Add Service X:
 ```js
 var options = {
-  clientState: "AddingIdentity"
   ...
 }
+Router.go('AddIdentity');
 if (!Identity.create(serviceName, options)) {
   Identity.authenticate(serviceName, options);
 }
@@ -293,10 +270,11 @@ Identity.onAttemptCompletion((err, result) => {
   if (err) {
     throw err; // Or otherwise handle it.
   }
-  if (result.clientState === 'SigningUp') {
+  let routeName = Router.current.getName();
+  if (routeName === 'SignUp') {
     Accounts.create(result.identity, accountOptions);
     Accounts.login(result.identity);
-  } else if (result.clientState === 'AddingIdentity') {
+  } else if (routeName === 'AddIdentity') {
     if (Meteor.userId()) {
       // Require user confirmation to prevent an attacker from adding his
       // identity to a victim's account by getting a logged in victim to follow
@@ -396,8 +374,8 @@ Login tokens are stored in local storage, but since identity tokens are only
 needed briefly that is not necessary. However, since the new API exposes
 identity objects that can be used to login while the old API did not expose
 login tokens, we need to ensure that the developer does not accidentally share
-an identity tokens by trying to share an identity object. To achieve this we can
-store the identity tokens itself in a function closure attached to the identity
+an identity token by trying to share an identity object. To achieve this we can
+store the identity token itself in a function closure attached to the identity
 object. Like this:
 
 ```js

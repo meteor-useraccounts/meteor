@@ -57,8 +57,7 @@ Tinytest.add("identity - delegation to service with create", (test) => {
   
   let retVal;
   let options = {
-    serviceName: prov.name,
-    clientState: 'client state'
+    serviceName: prov.name
   };
   retVal = Identity.create(prov.name, options);
   test.equal(retVal, prov.valToReturn, 'create returns value from service');
@@ -68,8 +67,7 @@ Tinytest.add("identity - delegation to service with create", (test) => {
     error: prov.errorOnCompletion, 
     result: {
       identity: prov.resultOnCompletion.identity,
-      methodName: 'create',
-      clientState: options.clientState
+      methodName: 'create'
     }
   }], 'create causes onAttemptCompletion handler to be called');
   prov.onCompletionCalls = [];
@@ -92,8 +90,7 @@ Tinytest.add("identity - delegation to service with create", (test) => {
     error: prov.errorOnCompletion, 
     result: {
       identity: prov.resultOnCompletion.identity,
-      methodName: 'authenticate',
-      clientState: options.clientState
+      methodName: 'authenticate'
     }
   }], 'auth causes onAttemptCompletion handler to be called');
 

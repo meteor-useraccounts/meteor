@@ -43,7 +43,6 @@ class IdentityImpl extends IdentityCommonImpl {
     self._invocation = {
       serviceName: serviceName,
       methodName: 'create',
-      clientState: options.clientState
     };
     return svc.create.apply(undefined, _.rest(arguments));
   }
@@ -56,7 +55,6 @@ class IdentityImpl extends IdentityCommonImpl {
     self._invocation = {
       serviceName: serviceName,
       methodName: 'authenticate',
-      clientState: options.clientState
     };
     return svc.authenticate.apply(undefined, _.rest(arguments));
   }
@@ -74,7 +72,7 @@ class IdentityImpl extends IdentityCommonImpl {
       if (self._invocation) {
         check(self._invocation, Object);
         result = _.defaults(result,
-          _.pick(self._invocation, 'methodName', 'clientState'));
+          _.pick(self._invocation, 'methodName'));
       }
       check(result, Match.ObjectIncluding({
         methodName: String,
