@@ -9,11 +9,15 @@ class IdentityImpl extends IdentityCommonImpl {
     self._completionHook = new Hook({ bindEnvironment: false });
     
     // A 'context' object that keeps track of the most recent
-    // create/authenticate invocation.
+    // create/authenticate call.
     // This is a persistent ReactiveDict so that it will survive a hot code push
     // or redirect.
     // TODO: Allow each IdentityImpl to have it's own reactive dict.
     self._ctx = new ReactiveDict('identity_ctx');
+    
+    // The callback associated with the most recent create/authenticate call.
+    // This is not a ReactiveDict because it can't be persisted.
+    self._callback = undefined;
   }
     
   // Information related to the most recent create/authentication call.
@@ -32,14 +36,16 @@ class IdentityImpl extends IdentityCommonImpl {
     return super.registerService(service);
   }
   
-  create(serviceName, options) {
+  create(serviceName, options, callback) {
     check(serviceName, String);
     check(options, Object);
+    check(callback, Match.Optional(Function));
     let self = this;
     let svc = self._getServiceByName(serviceName);
     if (! svc.create) {
       return false;
     }
+    self._callback = callback;
     self._invocation = {
       serviceName: serviceName,
       methodName: 'create',
@@ -47,11 +53,13 @@ class IdentityImpl extends IdentityCommonImpl {
     return svc.create.apply(undefined, _.rest(arguments));
   }
 
-  authenticate(serviceName, options) {
+  authenticate(serviceName, options, callback) {
     check(serviceName, String);
     check(options, Object);
+    check(callback, Match.Optional(Function));
     let self = this;
     let svc = self._getServiceByName(serviceName);
+    self._callback = callback;
     self._invocation = {
       serviceName: serviceName,
       methodName: 'authenticate',
@@ -66,7 +74,7 @@ class IdentityImpl extends IdentityCommonImpl {
   
   fireAttemptCompletion(error, result) {
     check(error, Match.OneOf(undefined, Error));
-    var self = this;
+    var self = this || Identity;
     if (! error) {
       result = _.clone(result);
       if (self._invocation) {
@@ -85,10 +93,15 @@ class IdentityImpl extends IdentityCommonImpl {
     // Clear the invocation which is now complete.
     self._invocation = undefined;
     
-    // Call the handlers
+    // Call the callback passed to create/authenticate
+    if (self._callback) {
+      self._callback.call(undefined, error, result);
+      self._callback = undefined;
+    }
+    
+    // Call the onATthandlers
     self._completionHook.each( (cb) => {
-      cb.call(undefined, 
-        error, result);
+      cb.call(undefined, error, result);
       return true;
     });
   }

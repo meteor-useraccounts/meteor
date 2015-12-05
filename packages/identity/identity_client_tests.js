@@ -27,13 +27,17 @@ class StubIdentityServiceProvider {
       };
     }      
     self.onCompletionCalls = [];
-    this.onCompletionStopper = Identity.onAttemptCompletion(
+    self.onCompletionStopper = Identity.onAttemptCompletion(
       (error, result) => {
         if (result && result.identity.serviceName === self.name) {
           self.onCompletionCalls.push({ error: error, result: result });
         }
       }
     );
+    self.onCallbackCalls = [];
+    self.callback = (error, result) => {
+      self.onCallbackCalls.push({ error: error, result: result });
+    };
   }
 }
 
@@ -59,7 +63,7 @@ Tinytest.add("identity - delegation to service with create", (test) => {
   let options = {
     serviceName: prov.name
   };
-  retVal = Identity.create(prov.name, options);
+  retVal = Identity.create(prov.name, options, prov.callback);
   test.equal(retVal, prov.valToReturn, 'create returns value from service');
   test.equal(prov.createCalls, [options], 'create called');
   test.equal(prov.authenticateCalls, [], 'auth not called');
@@ -70,19 +74,26 @@ Tinytest.add("identity - delegation to service with create", (test) => {
       methodName: 'create'
     }
   }], 'create causes onAttemptCompletion handler to be called');
+  test.equal(prov.onCallbackCalls, prov.onCompletionCalls, 
+    'create calls callback the same as onAttemptCompletion handler');
+
   prov.onCompletionCalls = [];
+  prov.onCallbackCalls = [];
   test.throws(() => {
     Identity.fireAttemptCompletion(undefined, { 
       identity: { serviceName: prov.name } 
     });
   });
   test.equal(prov.onCompletionCalls, [], 
-    'only first call to fireAttemptCompletion should work w/o context');
+    'only first fireAttemptCompletion should call onAttemptCompletion handler');
+  test.equal(prov.onCallbackCalls, [], 
+    'only first fireAttemptCompletion should call callback');
   
   prov.createCalls = [];
   prov.authenticateCalls = [];
   prov.onCompletionCalls = [];
-  retVal = Identity.authenticate(prov.name, options);
+  prov.onCallbackCalls = [];
+  retVal = Identity.authenticate(prov.name, options, prov.callback);
   test.equal(retVal, prov.valToReturn, 'auth returns value from service');
   test.equal(prov.createCalls, [], 'create not called');
   test.equal(prov.authenticateCalls, [options], 'auth called');
@@ -93,15 +104,20 @@ Tinytest.add("identity - delegation to service with create", (test) => {
       methodName: 'authenticate'
     }
   }], 'auth causes onAttemptCompletion handler to be called');
+  test.equal(prov.onCallbackCalls, prov.onCompletionCalls, 
+    'auth calls callback the same as onAttemptCompletion handler');
 
   prov.onCompletionCalls = [];
+  prov.onCallbackCalls = [];
   test.throws(() => {
     Identity.fireAttemptCompletion(undefined, { 
       identity: { serviceName: prov.name } 
     });
   });
   test.equal(prov.onCompletionCalls, [], 
-    'only first call to fireAttemptCompletion should work w/o context');
+    'only first fireAttemptCompletion should call onAttemptCompletion handler');
+  test.equal(prov.onCallbackCalls, [], 
+    'only first fireAttemptCompletion should call callback');
 });
 
 Tinytest.add("identity - delegation to service without create", (test) => {

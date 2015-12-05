@@ -30,7 +30,7 @@ so that identity services can use namespaced options as needed.
 ## Client-side API for app developers
 
 
-### `Identity.create(serviceName, options)`
+### `Identity.create(serviceName, options, [callback])`
 
 Ask the specified service to create an identity. Returns `false`, if the service
 does not support creating identities. Otherwise returns `true` and initiates an
@@ -43,7 +43,11 @@ service. As a result, callers should use the current URL to store any client
 state that will be needed after the attempt completes. This is typically done
 using parameters for the current route.
 
-### `Identity.authenticate(serviceName, options)`
+If `callback` is provided and the attempt completes in the same Javascript
+execution context, then `callback` will be called with the same arguments that
+are passed to the `onAttemptCompletion` callbacks.
+
+### `Identity.authenticate(serviceName, options, [callback])`
 
 Ask the specified identity service to attempt to determine the user's identity.
 
@@ -53,6 +57,10 @@ than the one where `Identity.authenticate` was called, depending on the identity
 service. As a result, callers should use the current URL to store any client
 state that will be needed after the attempt completes. This is typically done
 using parameters for the current route.
+
+If `callback` is provided and the attempt completes in the same Javascript
+execution context, then `callback` will be called with the same arguments that
+are passed to the `onAttemptCompletion` callbacks.
 
 ### `Identity.onAttemptCompletion(callback)`
 
