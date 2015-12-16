@@ -79,7 +79,7 @@ class IdentityLoginMethodImpl extends IdentityLoginMethodCommonImpl {
     let self = this;
     self._isEstablishing = false;
     if (err.error !== self.IDENTITY_ESTABLISHED) {
-      self.fireAttemptCompletion(err);
+      Identity.fireAttemptCompletion(err);
       if (callback) {
         callback.call(undefined, err);
       }

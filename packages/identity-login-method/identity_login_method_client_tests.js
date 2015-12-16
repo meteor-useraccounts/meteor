@@ -50,15 +50,13 @@ Tinytest.addAsync("identity-login-method - FakeLoginService", (test, done) => {
 Tinytest.addAsync("identity-login-method - establishWith", (test, done) => {
   Identity.registerService({
     name: 'with-fake-login-method',
-    create: (options, callback) => {
+    create: (options) => {
       Identity.loginMethod.establishWith(createWithFakeLoginService, 
-        options.fakeLoginService.args[0], options.fakeLoginService.args[1],
-        callback);
+        options.fakeLoginService.args[0], options.fakeLoginService.args[1]);
     },
-    authenticate: (options, callback) => {
+    authenticate: (options) => {
       Identity.loginMethod.establishWith(loginWithFakeLoginService, 
-        options.fakeLoginService.args[0], options.fakeLoginService.args[1],
-        callback);
+        options.fakeLoginService.args[0], options.fakeLoginService.args[1]);
     },
   });
   // Test creating and using identities via the FakeLoginService
