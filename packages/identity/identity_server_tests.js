@@ -1,13 +1,13 @@
-/* jshint esnext: true */
+/* globals Tinytest, Identity, Random, Log, Meteor */
 
-Tinytest.add("identity - sign and verify", (test) => {
+Tinytest.add('identity - sign and verify', (test) => {
   let identity1 = {
     serviceName: 'service1',
-    id: 'id1'
+    id: 'id1',
   };
   Identity.sign(identity1);
   let curTime = Date.now();
-  test.isTrue(curTime/1000 - identity1.when < 1, 'just created');
+  test.isTrue(curTime / 1000 - identity1.when < 1, 'just created');
   Identity.verify(identity1);
 
   let identity2 = {
@@ -17,10 +17,10 @@ Tinytest.add("identity - sign and verify", (test) => {
   // Add another property with a random name to be sure it is signed as well
   let propName = `testProp${Random.id()}`;
   identity2[propName] = 'testValue';
-  
+
   Identity.sign(identity2);
-  Identity.verify(identity2);  
-  
+  Identity.verify(identity2);
+
   // Tamper with the id
   identity2.id = 'id1';
   Log._suppress(1);
@@ -34,7 +34,7 @@ Tinytest.add("identity - sign and verify", (test) => {
   test.throws(() => { Identity.verify(identity2); }, 'verification failed');
   identity2.serviceName = 'service2';
   Identity.verify(identity2);
-  
+
   // Tamper with when it was signed
   identity2.when += 1;
   Log._suppress(1);
@@ -48,23 +48,23 @@ Tinytest.add("identity - sign and verify", (test) => {
   identity2[propName] = 'testValue';
 });
 
-Tinytest.add("identity - sign and verify multi-server", (test) => {
+Tinytest.add('identity - sign and verify multi-server', () => {
   let IdentityServerImpl = Object.getPrototypeOf(Identity).constructor;
   let IdentityServer1 = new IdentityServerImpl();
   let IdentityServer2 = new IdentityServerImpl();
-  
+
   let identity = {
     serviceName: 'service',
-    id: 'id'
+    id: 'id',
   };
   IdentityServer1.sign(identity);
   IdentityServer2.verify(identity);
 });
 
-Tinytest.add("identity - reject old secrets, maintain a fresh one", (test) => {
+Tinytest.add('identity - reject old secrets, maintain a fresh one', (test) => {
   let identity = {
     serviceName: 'service',
-    id: 'id'
+    id: 'id',
   };
   Identity.sign(identity);
   Identity.verify(identity);
@@ -80,7 +80,7 @@ Tinytest.add("identity - reject old secrets, maintain a fresh one", (test) => {
     Identity.sign(identity);
     Identity.verify(identity);
   } finally {
-    Identity.maxSecretAgeMs = origMaxSecretAgeMs;    
+    Identity.maxSecretAgeMs = origMaxSecretAgeMs;
   }
   // Just for good measure, check that our changes to maxSecretAgeMs didn't
   // break anything.
@@ -88,10 +88,10 @@ Tinytest.add("identity - reject old secrets, maintain a fresh one", (test) => {
   Identity.verify(identity);
 });
 
-Tinytest.add("identity - additionalSecret used", (test) => {
+Tinytest.add('identity - additionalSecret used', (test) => {
   let identity = {
     serviceName: 'service',
-    id: 'id'
+    id: 'id',
   };
   Identity.sign(identity);
   Identity.verify(identity);
@@ -104,7 +104,7 @@ Tinytest.add("identity - additionalSecret used", (test) => {
   Identity.additionalSecret = 'secret2';
   Log._suppress(1);
   test.throws(() => { Identity.verify(identity); }, 'verification failed');
-  
+
   let origIdentitySettings = Meteor.settings.identity;
   try {
     Meteor.settings.identity = { additionalSecret: 'secret1' };

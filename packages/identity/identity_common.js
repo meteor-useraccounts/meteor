@@ -1,11 +1,14 @@
-/* jshint esnext: true */
+/* globals IdentityCommonImpl: true, check, Match */
+/* eslint new-cap: [2, {
+     "capIsNewExceptions": ["ObjectIncluding"]
+   }] */
 
 IdentityCommonImpl = class IdentityCommonImpl {
   constructor() {
     // Service objects by service name
     this._services = {};
   }
-  
+
   registerService(service) {
     check(service, Match.ObjectIncluding({
       name: String,
@@ -15,18 +18,18 @@ IdentityCommonImpl = class IdentityCommonImpl {
     }
     this._services[service.name] = service;
   }
-  
+
   _getServiceByName(serviceName) {
     check(serviceName, String);
     let svc = this._services[serviceName];
-    if (! svc) {
+    if (!svc) {
       throw new Error(this.SERVICE_NOT_FOUND, serviceName);
     }
     return svc;
   }
-    
+
   // Error messages
-  get SERVICE_ALREADY_REGISTERED() { 
+  get SERVICE_ALREADY_REGISTERED() {
     return 'identity-service-already-registered';
   }
   get SERVICE_NOT_FOUND() {
@@ -34,5 +37,5 @@ IdentityCommonImpl = class IdentityCommonImpl {
   }
   get VERIFICATION_FAILED() {
     return 'verification-failed';
-  }  
+  }
 };

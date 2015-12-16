@@ -1,11 +1,12 @@
+/* globals Package, Npm */
 Package.describe({
-  summary: "An identity system",
-  version: "0.0.1"
+  summary: 'An identity system',
+  version: '0.0.1',
 });
 
-Npm.depends({jsonwebtoken: "5.4.1"});
+Npm.depends({jsonwebtoken: '5.4.1'});
 
-Package.onUse(function (api) {
+Package.onUse(function onUseCB(api) {
   api.use('underscore', ['client', 'server']);
   api.use('ecmascript', ['client', 'server']);
   api.use('check', ['client', 'server']);
@@ -23,7 +24,7 @@ Package.onUse(function (api) {
   api.addFiles('identity_client.js', 'client');
 });
 
-Package.onTest(function (api) {
+Package.onTest(function onTestCB(api) {
   api.use([
     'identity',
     'tinytest',
@@ -32,7 +33,7 @@ Package.onTest(function (api) {
     'ecmascript',
     'accounts-base',
     'random',
-    'logging'
+    'logging',
   ]);
 
   api.addFiles('identity_client_tests.js', 'client');

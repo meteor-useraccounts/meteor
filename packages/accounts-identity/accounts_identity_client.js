@@ -1,5 +1,5 @@
 /* globals AccountsIdentityCommonImpl, Errback, CREATE_METHOD_NAME, check,
-/* Match, Accounts */
+   Match, Accounts */
 /* eslint new-cap: [2, {"capIsNewExceptions": ["ObjectIncluding"]}] */
 
 class AccountsIdentityImpl extends AccountsIdentityCommonImpl {
