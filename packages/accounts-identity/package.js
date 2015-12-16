@@ -1,11 +1,11 @@
-/* eslint prefer-arrow-callback: 0 */
+/* globals Package */
 
 Package.describe({
   summary: 'A login service for identities created by the `identity` package.',
-  version: '0.0.1'
+  version: '0.0.1',
 });
 
-Package.onUse(function(api) {
+Package.onUse(function onUseCB(api) {
   api.use('underscore', ['client', 'server']);
   api.use('ecmascript', ['client', 'server']);
   api.use('check', ['client', 'server']);
@@ -21,7 +21,7 @@ Package.onUse(function(api) {
   api.addFiles('accounts_identity_client.js', 'client');
 });
 
-Package.onTest(function(api) {
+Package.onTest(function onTestCB(api) {
   api.use([
     'accounts-identity',
     'identity',
@@ -32,7 +32,7 @@ Package.onTest(function(api) {
     'accounts-base',
     'promise',
     'random',
-    'check'
+    'check',
   ]);
 
   api.addFiles('errback.js', ['client', 'server']);

@@ -1,11 +1,13 @@
-/* globals AccountsIdentityCommonImpl, CREATE_METHOD_NAME, Identity */
+/* globals AccountsIdentityCommonImpl, CREATE_METHOD_NAME, Identity, Meteor,
+/* check, _, Match, Accounts */
+/* eslint new-cap: [2, {"capIsNewExceptions": ["ObjectIncluding"]}] */
 
 class AccountsIdentityServerImpl extends AccountsIdentityCommonImpl {
   constructor(Accounts) {
     super();
     const self = this;
     Meteor.methods({
-      [CREATE_METHOD_NAME]: function(identity, accountDoc) {
+      [CREATE_METHOD_NAME]: function create(identity, accountDoc) {
         return Accounts._loginMethod(
           this,
           'create',
@@ -16,7 +18,7 @@ class AccountsIdentityServerImpl extends AccountsIdentityCommonImpl {
             check(accountDoc, Object);
             if (Accounts._options.forbidClientAccountCreation) {
               return {
-                error: new Meteor.Error(403, 'Signups forbidden')
+                error: new Meteor.Error(403, 'Signups forbidden'),
               };
             }
             Identity.verify(identity);
@@ -24,8 +26,8 @@ class AccountsIdentityServerImpl extends AccountsIdentityCommonImpl {
             accountDoc.services = {
               identity: {
                 identities: [ _.pick(identity, 'serviceName', 'id') ],
-                notSignedBefore: Math.floor(Date.now() / 1000)
-              }
+                notSignedBefore: Math.floor(Date.now() / 1000),
+              },
             };
             let userId;
             try {
@@ -50,17 +52,17 @@ class AccountsIdentityServerImpl extends AccountsIdentityCommonImpl {
             return { userId: userId };
           }
         );
-      }
+      },
     });
 
     self._observeStopper = Accounts.users.find({
       'services.resume.loginTokens': { $exists: true },
-      'services.identity.notSignedBefore': { $exists: true }
+      'services.identity.notSignedBefore': { $exists: true },
     }, {
       fields: {
         'services.resume.loginTokens': 1,
-        'services.identity.notSignedBefore': 1
-      }
+        'services.identity.notSignedBefore': 1,
+      },
     }).observe({
       changed(newDoc, oldDoc) {
         const newTokens = newDoc.services.resume.loginTokens;
@@ -70,10 +72,10 @@ class AccountsIdentityServerImpl extends AccountsIdentityCommonImpl {
         if (newTokens.length < oldTokens.length &&
             newDoc.services.identity.notSignedBefore < curSecs) {
           Accounts.users.update(oldDoc._id, {
-            $set: { 'services.identity.notSignedBefore': curSecs }
+            $set: { 'services.identity.notSignedBefore': curSecs },
           });
         }
-      }
+      },
     });
 
     Accounts.registerLoginHandler('identity', (options) => {
@@ -83,21 +85,21 @@ class AccountsIdentityServerImpl extends AccountsIdentityCommonImpl {
       const identity = options.identity;
       check(identity, Match.ObjectIncluding({
         serviceName: String,
-        id: String
+        id: String,
       }));
       Identity.verify(identity);
       const user = Accounts.users.findOne({
         'services.identity.identities.serviceName': identity.serviceName,
         'services.identity.identities.id': identity.id,
-        'services.identity.notSignedBefore': { $lte: identity.when }
+        'services.identity.notSignedBefore': { $lte: identity.when },
       });
       if (!user) {
         return {
-          error: new Meteor.Error(self.ACCOUNT_NOT_FOUND, 'User not found')
+          error: new Meteor.Error(self.ACCOUNT_NOT_FOUND, 'User not found'),
         };
       }
       return {
-        userId: user._id
+        userId: user._id,
       };
     });
 

@@ -1,10 +1,8 @@
-/* globals Identity */
+/* globals Identity, Meteor */
 
 Meteor.methods({
-  'Accounts.identity.test.reset': function() {
-    Meteor.users.remove({});
-  },
-  'Accounts.identity.test.signIdentity': function(identity) {
+  'Accounts.identity.test.reset': () => { Meteor.users.remove({}); },
+  'Accounts.identity.test.signIdentity': (identity) => {
     Identity.sign(identity);
     return {
       identity: identity,

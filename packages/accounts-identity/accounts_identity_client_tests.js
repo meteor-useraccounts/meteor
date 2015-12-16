@@ -1,4 +1,4 @@
-/* globals Identity, Errback */
+/* globals Identity, Errback, check, Tinytest, Meteor, _, Accounts */
 
 const prefix = 'accounts-identity -';
 
@@ -54,7 +54,7 @@ const extraTestMethods = {
   },
 };
 
-AsyncTest.add(`${prefix} create/login`, async function(test) {
+AsyncTest.add(`${prefix} create/login`, async (test) => {
   _.extend(test, extraTestMethods);
 
   // Delete all users
@@ -81,7 +81,7 @@ AsyncTest.add(`${prefix} create/login`, async function(test) {
     Identity.authenticate('fake-identity-service', { id: 'id2' }, cb));
 
   // Login should fail because we haven't created an account yet.
-  await test.asyncThrows(async function() {
+  await test.asyncThrows(async () => {
     await Accounts.identity.login(identity2);
   }, Accounts.identity.ACCOUNT_NOT_FOUND,
   'login before create should fail');
@@ -114,7 +114,7 @@ AsyncTest.add(`${prefix} create/login`, async function(test) {
 });
 
 function addLogoutTest(testName, logoutFunc) {
-  AsyncTest.add(testName, async function(test) {
+  AsyncTest.add(testName, async (test) => {
     _.extend(test, extraTestMethods);
 
     // Delete all users
@@ -144,7 +144,7 @@ function addLogoutTest(testName, logoutFunc) {
 
     // Logging in again using the same identity should fail because the identity
     // needs to be re-signed.
-    await test.asyncThrows(async function() {
+    await test.asyncThrows(async () => {
       await Accounts.identity.login(identity1);
     }, Accounts.identity.ACCOUNT_NOT_FOUND,
     'login in after logout should require re-signing');
@@ -161,7 +161,7 @@ addLogoutTest(`${prefix} logout`, Meteor.logout.bind(Meteor));
 addLogoutTest(`${prefix} logoutOtherClients`,
   Meteor.logoutOtherClients.bind(Meteor));
 
-AsyncTest.add(`${prefix} create dup`, async function(test) {
+AsyncTest.add(`${prefix} create dup`, async (test) => {
   _.extend(test, extraTestMethods);
 
   // Delete all users
@@ -180,7 +180,7 @@ AsyncTest.add(`${prefix} create dup`, async function(test) {
   test.profileNameEqual('name1');
 
   // Creating another account for the same identity should fail
-  await test.asyncThrows(async function() {
+  await test.asyncThrows(async () => {
     await Accounts.identity.create(identity1, {
       profile: { name: 'name1'},
     });
@@ -199,7 +199,7 @@ AsyncTest.add(`${prefix} create dup`, async function(test) {
     Identity.authenticate('fake-identity-service', { id: 'id1' }, cb));
 
   // Creating another account with the new identity should fail
-  await test.asyncThrows(async function() {
+  await test.asyncThrows(async () => {
     await Accounts.identity.create(identity1Reauthed,
       { profile: { name: 'name1'} });
   }, Accounts.identity.DUPLICATE_ACCOUNT,

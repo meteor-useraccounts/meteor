@@ -31,7 +31,7 @@ class ErrbackImpl {
   settlers(errback) {
     return [
       result => errback(undefined, result),
-      error => errback(error)
+      error => errback(error),
     ];
   }
 }
