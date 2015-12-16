@@ -1,10 +1,12 @@
+/* globals Package */
+
 Package.describe({
   summary: 'An identity service for identities established with ' +
     'Meteor.loginWith<service>',
-  version: "0.0.1"
+  version: '0.0.1',
 });
 
-Package.onUse(function (api) {
+Package.onUse(function onUseCB(api) {
   api.use('underscore', ['client', 'server']);
   api.use('ecmascript', ['client', 'server']);
   api.use('check', ['client', 'server']);
@@ -13,7 +15,8 @@ Package.onUse(function (api) {
   api.use('tracker', ['client', 'server']);
   api.use('accounts-base', ['client', 'server']);
   api.use('ddp', ['server']);
-  api.use('identity', ['client','server']);
+  api.use('identity', ['client', 'server']);
+  api.use('logging', ['client']);
 
   api.imply('identity');
 
@@ -22,7 +25,7 @@ Package.onUse(function (api) {
   api.addFiles('identity_login_method_client.js', 'client');
 });
 
-Package.onTest(function (api) {
+Package.onTest(function onTestCB(api) {
   api.use([
     'identity-login-method',
     'tinytest',
@@ -30,7 +33,7 @@ Package.onTest(function (api) {
     'underscore',
     'ecmascript',
     'accounts-base',
-    'random'
+    'random',
   ]);
 
   api.addFiles('identity_login_method_client_tests.js', 'client');

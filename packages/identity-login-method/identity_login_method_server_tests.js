@@ -1,4 +1,4 @@
-/* jshint esnext: true */
+/* globals Meteor, _, Accounts, Identity, */
 
  Accounts.removeDefaultRateLimit();
  
@@ -8,7 +8,7 @@
 // arguments.
 Meteor.methods({
   // Used by client test of establishWith
-  'Identity.loginMethod.test.create': function (param1, param2) {
+  'Identity.loginMethod.test.create': function create(/* arguments */) {
     let self = this;
     let args = _.toArray(arguments);
     return Accounts._loginMethod(
@@ -21,36 +21,36 @@ Meteor.methods({
           userId: Accounts.insertUserDoc({ /* options */ }, {
             services: {
               'identityFakeLoginService': {
-                args: args
-              }
-            }
-          })
+                args: args,
+              },
+            },
+          }),
         };
       }
     );
-  }
+  },
 });
 
 Accounts.registerLoginHandler('identityFakeLoginService', (options) => {
-  if (! options.identityFakeLoginService) {
+  if (!options.identityFakeLoginService) {
     return undefined;
   }
-  let user = Meteor.users.findOne({ 
-    'services.identityFakeLoginService.args': options.identityFakeLoginService 
+  let user = Meteor.users.findOne({
+    'services.identityFakeLoginService.args': options.identityFakeLoginService,
   });
-  if (! user) {
+  if (!user) {
     return {
-      error: new Meteor.Error(403, 'User not found')
+      error: new Meteor.Error(403, 'User not found'),
     };
   }
   return {
-    userId: user._id
+    userId: user._id,
   };
 });
 
 Meteor.methods({
-  'Identity.loginMethod.test.getVerifiedIdentityRecord': function (identity) {
+  'Identity.loginMethod.test.getVerifiedIdentityRecord': (identity) => {
     Identity.verify(identity);
     return Meteor.users.findOne(identity.id);
-  }
+  },
 });
