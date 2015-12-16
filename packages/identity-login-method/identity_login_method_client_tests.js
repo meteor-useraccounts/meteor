@@ -46,15 +46,19 @@ Tinytest.addAsync('identity-login-method - FakeLoginService', (test, done) => {
 });
 
 Tinytest.addAsync('identity-login-method - establishWith', (test, done) => {
+  let cbCalls = [];
+  function cb(...args) {
+    cbCalls.push(args);
+  }
   Identity.registerService({
     name: 'with-fake-login-method',
     create: (options) => {
       Identity.loginMethod.establishWith(createWithFakeLoginService,
-        options.fakeLoginService.args[0], options.fakeLoginService.args[1]);
+        options.fakeLoginService.args[0], options.fakeLoginService.args[1], cb);
     },
     authenticate: (options) => {
       Identity.loginMethod.establishWith(loginWithFakeLoginService,
-        options.fakeLoginService.args[0], options.fakeLoginService.args[1]);
+        options.fakeLoginService.args[0], options.fakeLoginService.args[1], cb);
     },
   });
   // Test creating and using identities via the FakeLoginService
@@ -70,10 +74,14 @@ Tinytest.addAsync('identity-login-method - establishWith', (test, done) => {
   }
   function verifyCreated(err, result) {
     test.isUndefined(err, `Error during establishWith: ${err}`);
+    test.equal(cbCalls, [], 'cb called too soon during createWithEstablish');
     test.equal(result.identity.serviceName, 'loginMethod');
     Meteor.call('Identity.loginMethod.test.getVerifiedIdentityRecord',
       result.identity,
       (getIdentityErr, getIdentityResult) => {
+        test.equal(cbCalls, [[err, result]],
+          'wrong cb calls during createWithEstablish');
+        cbCalls = [];
         test.isUndefined(getIdentityErr,
           'Error verifying identity: ${getIdentityErr}');
         test.equal(getIdentityResult.services.identityFakeLoginService.args,
@@ -103,9 +111,13 @@ Tinytest.addAsync('identity-login-method - establishWith', (test, done) => {
   function verifyAuthenticated(err, result) {
     test.isUndefined(err, `Error during establishWith: ${err}`);
     test.equal(result.identity.serviceName, 'loginMethod');
+    test.equal(cbCalls, [],
+      'cb called too soon during authenticateWithEstablish');
     Meteor.call('Identity.loginMethod.test.getVerifiedIdentityRecord',
       result.identity,
       (getIdentityErr, getIdentityResult) => {
+        test.equal(cbCalls, [[err, result]],
+          'wrong cb calls during authenticateWithEstablish');
         test.isUndefined(getIdentityErr,
           'Error verifying identity: ${getIdentityErr}');
         test.equal(getIdentityResult.services.identityFakeLoginService.args,

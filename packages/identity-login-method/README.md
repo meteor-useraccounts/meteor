@@ -14,15 +14,17 @@ systems.
 ### `Identity.loginMethod.establishWith(func, arg1, arg2, ..., [callback])`
 
 Call `func` but cause it to establish an identity (create or authenticate)
-whenever it would have created or logged a user into an account. The `arg*``
+whenever it would have created or logged a user into an account. The `arg*`
 arguments are passed to `func`, along with a final argument that is a function
 that must be called (with parameters `error` and `result`) if the login method
 initiated by `func` completes in the same javascript virtual machine. That
 function will call `Identity.fireAttemptCompletion` and then call the `callback`
-function (with the same parameters) if one is provided. If the page is reloaded
-due to an oauth redirect flow, `Identity.fireAttemptCompletion` will be called
-at the end of that flow. Between the time that `func` is called and the time
-that `Identity.fireAttemptCompletion` is called, all calls to server-side login
+function (with the same parameters) if one is provided. Note that `callback`
+should not call `Identity.fireAttemptCompletion` because `establishWith` will
+have already done that. If the page is reloaded due to an oauth redirect flow,
+`Identity.fireAttemptCompletion` will be called at the end of that flow. Between
+the time that `func` is called and the time that
+`Identity.fireAttemptCompletion` is called, all calls to server-side login
 methods on the default connection that would normally cause the creation of an
 account (i.e. cause the `Accounts.validateNewUser` callbacks to run) or a login
 attempt (i.e. `Accounts.validateLoginAttempt` callbacks to run), will neither
