@@ -1,7 +1,7 @@
 /* globals Meteor, _, Accounts, Identity, */
 
- Accounts.removeDefaultRateLimit();
- 
+Accounts.removeDefaultRateLimit();
+
 // The FakeLoginService just creates users that record the arguments passed to
 // Identity.loginMethod.test.create. Then the login handler will return
 // that user whenever options.identityFakeLoginService is an array of the same
