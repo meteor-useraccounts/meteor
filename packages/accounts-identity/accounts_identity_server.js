@@ -1,5 +1,7 @@
-/* globals AccountsIdentityCommonImpl, CREATE_METHOD_NAME, Identity, Meteor,
-/* check, _, Match, Accounts */
+/* globals AccountsIdentityCommonImpl, CREATE_METHOD_NAME,
+  ADD_IDENTITY_METHOD_NAME, REMOVE_IDENTITY_METHOD_NAME, Identity, Meteor,
+  check, _, Match, Accounts */
+
 /* eslint new-cap: [2, {"capIsNewExceptions": ["ObjectIncluding"]}] */
 
 class AccountsIdentityServerImpl extends AccountsIdentityCommonImpl {
@@ -53,6 +55,49 @@ class AccountsIdentityServerImpl extends AccountsIdentityCommonImpl {
           }
         );
       },
+      [ADD_IDENTITY_METHOD_NAME]: function addIdentity(identity) {
+        check(identity, Match.ObjectIncluding({
+          when: Number,
+          serviceName: String,
+          id: String,
+        }));
+        let user = Meteor.user();
+        if (!user) {
+          throw new Meteor.Error(self.NOT_LOGGED_IN, 'Not logged in');
+        }
+        Identity.verify(identity);
+        let modifier = {
+          $addToSet: {
+            'services.identity.identities':
+              _.pick(identity, 'serviceName', 'id'),
+          },
+        };
+        if (!user.services || !user.services.identity ||
+            !user.services.identity.notSignedBefore) {
+          modifier.$set = {
+            'services.identity.notSignedBefore': Math.floor(Date.now() / 1000),
+          };
+        }
+        Meteor.users.update(user._id, modifier);
+      },
+      [REMOVE_IDENTITY_METHOD_NAME]: function removeIdentity(identity) {
+        check(identity, Match.ObjectIncluding({
+          serviceName: String,
+          id: String,
+        }));
+        let userId = Meteor.userId();
+        if (!userId) {
+          throw new Meteor.Error(self.NOT_LOGGED_IN, 'Not logged in');
+        }
+        Meteor.users.update(userId, {
+          $pull: {
+            'services.identity.identities': {
+              serviceName: identity.serviceName,
+              id: identity.id,
+            },
+          },
+        });
+      },
     });
 
     self._observeStopper = Accounts.users.find({
@@ -105,6 +150,56 @@ class AccountsIdentityServerImpl extends AccountsIdentityCommonImpl {
 
     Accounts.users._ensureIndex({ 'services.identity.identities': 1 },
       { unique: true });
+
+    Meteor.publish(null, publishIdentities);
+  }
+}
+
+function publishIdentities() {
+  // Add a client-only `identities` property to the current user record
+  // and keep it updated to refect the user's identities.
+  let self = this;
+  // The function to call to notify the subscriber. We initially set it to
+  // self.added to workaround meteorhacks:fast-render issue #142
+  // (https://github.com/kadirahq/fast-render/issues/142). Once self.added() is
+  // called once, we set it to self.changed().
+  let updateFunc = self.added.bind(self);
+
+  if (!self.userId) {
+    return null;
+  }
+  let userObserverStopper = Meteor.users.find({
+    _id: self.userId,
+  }).observeChanges({
+    added: updateIdentities,
+    changed: updateIdentities,
+  });
+
+  self.onStop(() => {
+    userObserverStopper.stop();
+  });
+
+  self.ready();
+
+  function updateIdentities() {
+    let user = Meteor.users.findOne({
+      _id: self.userId,
+    });
+    if (!user) {
+      // user has been removed, so no need to change.
+      return;
+    }
+    let identities
+      = user.services && user.services.identity &&
+        user.services.identity.identities;
+    // Get just the serviceName and id fields.
+    identities = identities || [];
+    identities =
+      identities.map((identity) => _.pick(identity, 'serviceName', 'id'));
+    updateFunc('users', self.userId, {
+      _identities: identities || [],
+    });
+    updateFunc = self.changed.bind(self);
   }
 }
 

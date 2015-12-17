@@ -206,19 +206,84 @@ AsyncTest.add(`${prefix} create dup`, async (test) => {
   'create with reauthed identity should fail');
 });
 
-/*
-Tinytest.addAsync(`${prefix} addIdentity`, (test, done) => {
-  test.fail('Not yet implemented');
-  done();
-});
+AsyncTest.add(`${prefix} add/get/remove identity`, async (test) => {
+  _.extend(test, extraTestMethods);
 
-Tinytest.addAsync(`${prefix} getIdentities`, (test, done) => {
-  test.fail('Not yet implemented');
-  done();
-});
+  // Delete all users
+  await Errback.promise(cb => Meteor.call('Accounts.identity.test.reset', cb));
 
-Tinytest.addAsync(`${prefix} removeIdentity`, (test, done) => {
-  test.fail('Not yet implemented');
-  done();
+  // Logout
+  await Errback.promise(cb => Meteor.logout(cb));
+  test.isNull(Meteor.userId(), 'Meteor.userId() is not null');
+
+  // Create a new identity
+  const { identity: identity1 } = await Errback.promise(cb =>
+    Identity.authenticate('fake-identity-service', { id: 'id1' }, cb));
+
+  // Check that we can't add the identity if we aren't logged in
+  await test.asyncThrows(async () => {
+    await Accounts.identity.addIdentity(identity1);
+  }, Accounts.identity.NOT_LOGGED_IN,
+  'addIdentity() should fail when not logged in');
+
+  // Create an account for the identity and log the user in.
+  await Accounts.identity.create(identity1, { profile: { name: 'name1'} });
+  test.profileNameEqual('name1');
+
+  // Create a second identity
+  const { identity: identity2 } = await Errback.promise(cb =>
+    Identity.authenticate('fake-identity-service', { id: 'id2' }, cb));
+
+  // Add the second identity to our account
+  await Accounts.identity.addIdentity(identity2);
+
+  // Logout
+  await Errback.promise(cb => Meteor.logout(cb));
+  test.isNull(Meteor.userId(), 'Meteor.userId() is not null');
+
+  // Login using the second Identity
+  await Accounts.identity.login(identity2);
+
+  // Check that we are logged into the same account
+  test.profileNameEqual('name1');
+
+  // Logout
+  await Errback.promise(cb => Meteor.logout(cb));
+  test.isNull(Meteor.userId(), 'Meteor.userId() is not null');
+
+  // Check that we can't get our identities if we aren't logged in
+  await test.asyncThrows(async () => {
+    await Accounts.identity.getIdentities();
+  }, Accounts.identity.NOT_LOGGED_IN,
+  'getIdentities() should fail when not logged in');
+
+  // Login
+  await Accounts.identity.login(identity1);
+  test.profileNameEqual('name1');
+
+  // Get our identities
+  let identities = Accounts.identity.getIdentities();
+  test.equal(identities, [
+    _.pick(identity1, 'serviceName', 'id'),
+    _.pick(identity2, 'serviceName', 'id'),
+  ], 'wrong identities');
+
+  // Remove the first identity
+  await Accounts.identity.removeIdentity(identities[0]);
+
+  // Logout
+  await Errback.promise(cb => Meteor.logout(cb));
+  test.isNull(Meteor.userId(), 'Meteor.userId() is not null');
+
+  // Confirm that we can't login using the first identity
+  await test.asyncThrows(async () => {
+    await Accounts.identity.login(identity1);
+  }, Accounts.identity.ACCOUNT_NOT_FOUND,
+  'login after removeIdentity should fail');
+
+  // Login using the second identity again
+  await Accounts.identity.login(identity2);
+
+  // Check that we are logged into the same account
+  test.profileNameEqual('name1');
 });
-*/
